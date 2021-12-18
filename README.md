@@ -1,11 +1,14 @@
 # InterruptButton
 This is an interrupt based button event library for the ESP32. It uses the 'onChange' interrupt for a given pin, and also uses the ESP high precision timer to carry out debouncing, longPresses, and doubleClicks.
 
+There are 5 synchronous events, 3 asynchronous events, and a paging structure allowing 5 levels of action for each button.  This means you could attach 40 different functions to a single button (if you dare!)
+
 It is written mostly using the Arduino platform, but does reference some functions for the ESP IDF in order to make the interrupt driven events possible.
 
 ## It allows for the following:
 
-### Synchronous Events (actioned inside of an ISR)
+### Synchronous Events 
+Synchronous Events are actioned inside of user defined functions attached to specific button events.
   * keyDown
   * keyUp
   * keyPress (combination of keyDown and keyUp)
@@ -14,19 +17,21 @@ It is written mostly using the Arduino platform, but does reference some functio
   
 Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is much slower.
   
-### Asynchronous Events, actioned when 'processAsyncEvents()' member function is called in the main loop.
+### Asynchronous Events
+Asynchronous events are actioned when the 'processAsyncEvents()' member function is called in the main loop.
   * keyPress
   * longKeyPress
   * doubleClick
 
-These events are basesd on the same configuration for synchronous events listed above.
+These events are basesd on the same debounce and delay configuration for synchronous events listed above.
 
 ### Multi-page/level events
-  This is handy if you several different GUI pages where all the different events mean something different.  
-  If you change the page index, you can change all button behavior at once.  Currently limited to 5 levels, but relatively easily changed.
+  This is handy if you have several different GUI pages where all the buttons mean something different on a different page.  
+  You can change the menu level of all buttons at once using the static member function 'setMenuLevel(level)'
+  Currently limited to 5 levels, but easily changed inside of library
 
 ### Other Features
-  * The Asynchronous and Synchronous events can enabled or disabled by type (Async and Sync)
+  * The Asynchronous and Synchronous events can enabled or disabled globally by type (Async and Sync)
   * The pin, the pin level, and pull up / pull down mode can all be set on a per instance basis.
   * The timing for debounce, longPress, and DoubleClick can be set on a per instance basis.
   * Synchronous events are called *Immediately* after debouncing
