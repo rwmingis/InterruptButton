@@ -1,0 +1,20 @@
+{
+    "name": "InterruptButton",
+    "description": "Interrupt driven events for hardware buttons",
+    "keywords": "ïnterrupt, button, event",
+    "authors": [
+        {
+            "name": "R. Mingis",
+            "maintainer": true
+        }
+    ],
+    "repository": {
+        "type": "git",
+         "url": "https://github.com/rwmingis/InterruptButton"
+    },
+    "version": "1.0.0",
+    "frameworks": "Arduino",
+    "examples": [
+        "examples/*.ino"
+    ]
+}
