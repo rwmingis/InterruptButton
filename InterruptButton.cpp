@@ -149,6 +149,11 @@ uint8_t InterruptButton::getMenuLevel() {
   return m_menuLevel; 
 }
 
+void InterruptButton::enableSyncEvents()   { m_enableSyncEvents =  true;  }
+void InterruptButton::disableSyncEvents()  { m_enableSyncEvents =  false; }
+void InterruptButton::enableAsyncEvents()  { m_enableAsyncEvents = true;  }
+void InterruptButton::disableAsyncEvents() { m_enableAsyncEvents = false; }
+
 bool InterruptButton::inputOccurred(void){
   return (keyPressOccurred || longKeyPressOccurred || doubleClickOccurred);
 }
