@@ -37,6 +37,12 @@ These events are basesd on the same debounce and delay configuration for synchro
   * Synchronous events are called *Immediately* after debouncing
   * Asynchronous events are invoked by calling the 'processAsyncEvents()' member function in the main loop and *are subject to the main loop timing.*
 
+### Example Usage
+This is an output of the serial port from the example file.  Here just the Serial.println, but you can replace that with your own code to do what you need
+![This is an image](https://github.com/rwmingis/InterruptButton/blob/fba0949d9165099286d435f54c975e718684fcfc/images/example.png)
+
+
+
 ## Known Limitations:
   * While the ISR code is generally placed in the ram area using the IRAM_ATTR attribute, there are some Arduina and ESP IDF functions called from within the ISR. This may place ISR code back in the flash and potentially cause issues if the SPI bus is busy, but so far, hasn't caused any issues on my testing and implementation.  Future version may remedy this, but may complicate the code.
   * Like all ISR's the synchronous code functions should be LIGHTWEIGHT and FAST
