@@ -27,7 +27,7 @@ Functions applied to the above events should be defined with the IRAM_ATTR attri
   * The Asynchronous and Synchronous events can enabled or disabled by type (Async and Sync)
   * The pin, the pin level, and pull up / pull down mode can all be set on a per instance basis.
   * The timing for debounce, longPress, and DoubleClick can be set on a per instance basis.
-  * Synchronous events are called *Immediately*
+  * Synchronous events are called *Immediately* after debouncing
   * Asynchronous events are invoked by calling the 'processAsyncEvents()' member function in the main loop and *are subject to the main loop timing.*
 
 ## Known Limitations:
@@ -37,7 +37,7 @@ Functions applied to the above events should be defined with the IRAM_ATTR attri
 
 ### See the example file, as it covers most interesting things, but I believe it is fairly self-explanatory.
 
-*This is my first library so please be kind.  My poor formatting was based on bad habits from my C++ programming course in university in 1998 and hasn't improved since.  I feel the code works great and I generated this library because I couldn't find anything similar and the ones based on loop polling didn't work at all with long loop times.  Interrupts can be a bit cantankerous, but this seems to work nearly flawlessly in my experience, but I imagine maybe not so for everyone and welcome any suggestions for improvements.*
+*This is my first library so please be kind.  It is not intended for mission critical mass deployments, more so for personal non-critical non-hazardous projects.  My poor formatting was based on bad habits from my C++ programming course in university in 1998 and hasn't improved since.  I feel the code works great and I generated this library because I couldn't find anything similar and the ones based on loop polling didn't work at all with long loop times.  Interrupts can be a bit cantankerous, but this seems to work nearly flawlessly in my experience, but I imagine maybe not so for everyone and welcome any suggestions for improvements.*
 
 
 
