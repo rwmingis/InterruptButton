@@ -44,6 +44,10 @@ class InterruptButton {
     ~InterruptButton();                                                     // Class Destructor
     void begin();                                                           // Instance initialiser
     void readButton(void);                                                  // ISR that does all the work, unique per instance.
+    void enableSyncEvents();
+    void disableSyncEvents();
+    void enableAsyncEvents();
+    void disableAsyncEvents();
 
     // Synchronous Event Routines ------------------                        // References to extnernal functions for sychronous (instantaneous) events
     void (*keyDown[m_maxMenus])(void);                                               // These should be defined with IRAM_ATTR and be as short as possible.
