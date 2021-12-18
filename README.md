@@ -14,10 +14,12 @@ It is written mostly using the Arduino platform, but does reference some functio
   
 Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is much slower.
   
-### Asynchronous Events, actioned when 'processAsyncEvents()' member function is called in the main loop, which have the same attributes as synchronous events listed above
+### Asynchronous Events, actioned when 'processAsyncEvents()' member function is called in the main loop.
   * keyPress
   * longKeyPress
   * doubleClick
+
+These events are basesd on the same configuration for synchronous events listed above.
 
 ### Multi-page/level events
   This is handy if you several different GUI pages where all the different events mean something different.  
