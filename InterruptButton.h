@@ -44,6 +44,9 @@ class InterruptButton {
     ~InterruptButton();                                                     // Class Destructor
     void begin();                                                           // Instance initialiser
     void readButton(void);                                                  // ISR that does all the work, unique per instance.
+    
+    void enableEvents();
+    void disableEvents();
     void enableSyncEvents();
     void disableSyncEvents();
     void enableAsyncEvents();
