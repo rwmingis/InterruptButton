@@ -5,6 +5,8 @@ There are 5 synchronous events, 3 asynchronous events, and a paging structure al
 
 It is written mostly using the Arduino platform, but does reference some functions for the ESP IDF in order to make the interrupt driven events possible.
 
+(edit) I realise I have got the wording for Asynchronous and Synchronous backwards.  Still works fine, but I will have to fix in next revision
+
 ## It allows for the following:
 
 ### Synchronous Events 
