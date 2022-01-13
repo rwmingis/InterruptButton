@@ -59,7 +59,7 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
     if(digitalRead(m_pin) == m_pressedState) validPolls++;    // Count the number of valid 'PRESSED' reads
     if(totalPolls >= InterruptButton::m_targetPolls){         // If we have checked the button enough times, then make a decision on key state
       if(validPolls * 2 > totalPolls) {                       // Key is assumed pressed if it had valid polls more than half the time
-        if(m_enableSyncEvents && keyDown[m_menuLevel] != nullptr) keyDown[m_menuLevel]();
+        if(m_enableAsyncEvents && keyDown[m_menuLevel] != nullptr) keyDown[m_menuLevel]();
         buttonDownTime = millis();
         m_state = pressed;
 //Serial.println("[2.1]  'confirmingPress', changing to 'pressed'");
@@ -90,14 +90,14 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
       if(totalPolls >= InterruptButton::m_targetPolls && validPolls * 2 > totalPolls) {                       // We have a valid release.
         if((millis() - buttonDownTime) >= m_longKeyPressMS) { // JUST COMPLETED DEBOUNCING A LONGPRESS (DON'T WAIT FOR DOUBLECLICK)
           longKeyPressOccurred = true;  m_longKeyPressMenuLevel = m_menuLevel;
-          if(m_enableSyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
-          if(m_enableSyncEvents && longKeyPress[m_menuLevel] != nullptr)  longKeyPress[m_menuLevel]();
+          if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
+          if(m_enableAsyncEvents && longKeyPress[m_menuLevel] != nullptr)  longKeyPress[m_menuLevel]();
           m_state = released;
 //Serial.println("[4.1]  'confirmingRelease', longKeyPress detected, changing to 'released'");
         } else if(debouncingDoubleClick){                      // JUST COMPLETED DEBOUNCING A DOUBLECLICK
           doubleClickOccurred = true;   m_doubleClickMenuLevel = m_menuLevel;
-          if(m_enableSyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
-          if(m_enableSyncEvents && doubleClick[m_menuLevel] != nullptr)   doubleClick[m_menuLevel]();                        
+          if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
+          if(m_enableAsyncEvents && doubleClick[m_menuLevel] != nullptr)   doubleClick[m_menuLevel]();                        
           debouncingDoubleClick = false;
           m_state = released;
 //Serial.println("[4.2]  'confirmingRelease', debounce of doubleClick completed, changing to 'released'");
@@ -132,8 +132,8 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
 //Serial.println(String("[5.0]  'wtgForDoubleClick', doubleclick detected, changing to 'confirmingRelease' - ClickTiming: ") + (millis() - buttonUpTime));
     } else {                                                  // THE EVENT WAS A BASIC KEYPRESS
       keyPressOccurred = true; m_keyPressMenuLevel = m_menuLevel;
-      if(m_enableSyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
-      if(m_enableSyncEvents && keyPress[m_menuLevel] != nullptr)      keyPress[m_menuLevel]();
+      if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
+      if(m_enableAsyncEvents && keyPress[m_menuLevel] != nullptr)      keyPress[m_menuLevel]();
       m_state = released;                                     // Since we timedout, no second press and we have debounced already
 //Serial.println(String("[5.1]  'wtgForDoubleClick', keyPress detected, changing to 'released' - ClickTiming: ") + (millis() - buttonUpTime) + "\n");
     }
@@ -167,19 +167,19 @@ void InterruptButton::clearInputs(void){
   doubleClickOccurred = false;
 }
 
-// Asynchronous Event Routines ------------------------------- --
-void InterruptButton::processAsyncEvents(void){
-  if(m_enableAsyncEvents){
+// Synchronous Event Routines ------------------------------- --
+void InterruptButton::processSyncEvents(void){
+  if(m_enableSyncEvents){
     if(keyPressOccurred) {
-      if(asyncKeyPress[m_keyPressMenuLevel] != nullptr)         asyncKeyPress[m_keyPressMenuLevel]();
+      if(syncKeyPress[m_keyPressMenuLevel] != nullptr)         syncKeyPress[m_keyPressMenuLevel]();
       keyPressOccurred = false; 
     }        
     if(longKeyPressOccurred){
-      if(asyncLongKeyPress[m_longKeyPressMenuLevel] != nullptr) asyncLongKeyPress[m_longKeyPressMenuLevel]();
+      if(syncLongKeyPress[m_longKeyPressMenuLevel] != nullptr) syncLongKeyPress[m_longKeyPressMenuLevel]();
       longKeyPressOccurred = false; 
     }
     if(doubleClickOccurred){
-      if(asyncDoubleClick[m_doubleClickMenuLevel] != nullptr)   asyncDoubleClick[m_doubleClickMenuLevel]();
+      if(syncDoubleClick[m_doubleClickMenuLevel] != nullptr)   syncDoubleClick[m_doubleClickMenuLevel]();
       doubleClickOccurred = false; 
     }
   }
