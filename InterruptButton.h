@@ -52,23 +52,23 @@ class InterruptButton {
     void enableAsyncEvents();
     void disableAsyncEvents();
 
-    // Synchronous Event Routines ------------------                        // References to extnernal functions for sychronous (instantaneous) events
-    void (*keyDown[m_maxMenus])(void);                                               // These should be defined with IRAM_ATTR and be as short as possible.
+    // Asynchronous Event Routines ------------------                       // References to external functions for Asychronous (instantaneous) events
+    void (*keyDown[m_maxMenus])(void);                                      // These should be defined with IRAM_ATTR and be as short as possible.
     void (*keyUp[m_maxMenus])(void);
     void (*keyPress[m_maxMenus])(void);
     void (*longKeyPress[m_maxMenus])(void);
     void (*doubleClick[m_maxMenus])(void);
 
-    // Asynchronous Event Routines -----------------                        // References to extnernal functions for asychronous events
-    void (*asyncKeyPress[m_maxMenus])(void);                                         // These are run inside of main loop at button.processAsyncEvents()
-    void (*asyncLongKeyPress[m_maxMenus])(void);
-    void (*asyncDoubleClick[m_maxMenus])(void);
+    // Synchronous Event Routines -----------------                         // References to extnernal functions for Synchronous events
+    void (*syncKeyPress[m_maxMenus])(void);                                 // These are run inside of main loop at button.processSyncEvents()
+    void (*syncLongKeyPress[m_maxMenus])(void);
+    void (*syncDoubleClick[m_maxMenus])(void);
     bool keyPressOccurred = false;
     bool longKeyPressOccurred = false;
     bool doubleClickOccurred = false;
     bool inputOccurred(void);                                               // Used as a simple test if there was ANY action on button, ie if polling.
-    void clearInputs(void);                                                 // Resets all asyncronous events flags
-    void processAsyncEvents(void);                                          // Used to action any events asynchronous events recorded.
+    void clearInputs(void);                                                 // Resets all Syncronous events flags
+    void processSyncEvents(void);                                           // Used to action any Synchronous events recorded.
 };
 
 
