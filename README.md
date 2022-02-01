@@ -1,26 +1,26 @@
 # InterruptButton
-This is an interrupt based button event library for the ESP32. It uses the 'onChange' interrupt for a given pin, and also uses the ESP high precision timer to carry out debouncing, longPresses, and doubleClicks.
+This is an interrupt based button event library for the ESP32. It uses the 'onChange' interrupt for a given pin, and also uses the ESP high precision timer to carry out debouncing, longPresses, and doubleClicks. 
 
-There are 5 synchronous events, 3 asynchronous events, and a paging structure allowing 5 levels of action for each button.  This means you could attach 40 different functions to a single button (if you dare!)
+This means that button polling and debouncing are NOT limited to the main loop frequency which significantly reduces the chance of missed presses with long main loop durations.
+
+There are 3 synchronous events, 5 asynchronous events, and a pageing structure allowing 5 levels of action for each button.  This means you could attach 40 different functions to a single button (if you dare!)
 
 It is written mostly using the Arduino platform, but does reference some functions for the ESP IDF in order to make the interrupt driven events possible.
 
-(edit) I realise I have got the wording for Asynchronous and Synchronous backwards.  Still works fine, but I will have to fix in next revision
-
 ## It allows for the following:
 
-### Synchronous Events 
-Synchronous Events are actioned inside of user defined functions attached to specific button events.
+### Asynchronous Events 
+Asynchronous Events are actioned immediately by calling user defined functions attached to specific button events as an Interrupt Service Routine (ISR).
   * keyDown
   * keyUp
   * keyPress (combination of keyDown and keyUp)
   * longKeyPress (required press time is user configurable)
   * doubleClick (max time between clicks is user configurable)
   
-Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is much slower.
+Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is much slower and could cause SPI bus clashes though I have not run into this issue yet.
   
-### Asynchronous Events
-Asynchronous events are actioned when the 'processAsyncEvents()' member function is called in the main loop.
+### Synchronous Events
+Synchronous events are actioned when the 'processAsyncEvents()' member function is called in the main loop.  Like Asynchronous events, they are actioned by calling user defined functions attached to specific button events.
   * keyPress
   * longKeyPress
   * doubleClick
@@ -30,14 +30,14 @@ These events are basesd on the same debounce and delay configuration for synchro
 ### Multi-page/level events
   This is handy if you have several different GUI pages where all the buttons mean something different on a different page.  
   You can change the menu level of all buttons at once using the static member function 'setMenuLevel(level)'
-  Currently limited to 5 levels, but easily changed inside of library
+  Currently limited to 5 levels, but easily changed inside of library (these may be changed to use dynamic memory allocation if this library has good takeup in the future)
 
 ### Other Features
   * The Asynchronous and Synchronous events can enabled or disabled globally by type (Async and Sync)
-  * The pin, the pin level, and pull up / pull down mode can all be set on a per instance basis.
-  * The timing for debounce, longPress, and DoubleClick can be set on a per instance basis.
-  * Synchronous events are called *Immediately* after debouncing
-  * Asynchronous events are invoked by calling the 'processAsyncEvents()' member function in the main loop and *are subject to the main loop timing.*
+  * The pin, the pin level, and pull up / pull down mode can all be set on a per button instance basis.
+  * The timing for debounce, longPress, and DoubleClick can be set on a per button instance basis.
+  * Asynchronous events are called *Immediately* after debouncing
+  * Synchronous events are invoked by calling the 'processAsyncEvents()' member function in the main loop and *are subject to the main loop timing.*
 
 ### Example Usage
 This is an output of the serial port from the example file.  Here just the Serial.println, but you can replace that with your own code to do what you need
@@ -46,9 +46,9 @@ This is an output of the serial port from the example file.  Here just the Seria
 
 
 ## Known Limitations:
-  * While the ISR code is generally placed in the ram area using the IRAM_ATTR attribute, there are some Arduina and ESP IDF functions called from within the ISR. This may place ISR code back in the flash and potentially cause issues if the SPI bus is busy, but so far, hasn't caused any issues on my testing and implementation.  Future version may remedy this, but may complicate the code.
-  * Like all ISR's the synchronous code functions should be LIGHTWEIGHT and FAST
-  * The Asynchronous routines can be much more robust, but are limited to the mainloop frequency.
+  * While the ISR code is generally placed in the ram area using the IRAM_ATTR attribute, there are some Arduino and ESP IDF functions called from within the ISR. This may place ISR code back in the flash and potentially cause issues if the SPI bus is busy, but so far, hasn't caused any issues on my testing and implementation.  Future versions may remedy this, but may complicate the code.
+  * Like all ISR's the asynchronous code functions should be LIGHTWEIGHT and FAST
+  * The Synchronous routines can be much more robust, but are limited to the main loop frequency
 
 ### See the example file, as it covers most interesting things, but I believe it is fairly self-explanatory.
 
