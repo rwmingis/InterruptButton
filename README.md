@@ -40,7 +40,7 @@ These events are basesd on the same debounce and delay configuration for synchro
   * Synchronous events are invoked by calling the 'processAsyncEvents()' member function in the main loop and *are subject to the main loop timing.*
 
 ### Example Usage
-This is an output of the serial port from the example file.  Here just the Serial.println, but you can replace that with your own code to do what you need
+This is an output of the serial port from the example file.  Here just the Serial.Println(), but you can replace that with your own code to do what you need.  (also note, I got 'sync' and 'async' backwards in screenshot below)
 ![This is an image](https://github.com/rwmingis/InterruptButton/blob/fba0949d9165099286d435f54c975e718684fcfc/images/example.png)
 
 
