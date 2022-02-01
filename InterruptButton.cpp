@@ -25,12 +25,12 @@ InterruptButton::~InterruptButton() {
 
 // Initialiser -------------------------------------------------------------------
 void InterruptButton::begin(void){
-  if(m_pinMode == INPUT_PULLUP || m_pinMode == INPUT_PULLDOWN) {
+  if(m_pinMode == INPUT_PULLUP || m_pinMode == INPUT_PULLDOWN || m_pinMode == INPUT) {
     pinMode(m_pin, m_pinMode);                                              // Set pullups for button pin, if any
     setButtonChangeInterrupt(true);                                         // Enable onchange interrupt for button pin 
     m_state = (digitalRead(m_pin) == m_pressedState) ? pressed : released;  // Set to current state when initialising
   } else {
-    Serial.println("Error: Interrupt Button must be 'INPUT_PULLUP' or 'INPUT_PULLDOWN'");
+    Serial.println("Error: Interrupt Button must be 'INPUT_PULLUP' or 'INPUT_PULLDOWN' or 'INPUT'");
   }
 }
 
