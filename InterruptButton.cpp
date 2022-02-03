@@ -50,7 +50,7 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
     setButtonChangeInterrupt(false);                          // Turn off this interrupt to ignore inputs while we wait to check if valid press
     validPolls = 1; totalPolls = 1;                           // Was released, just detected a change, must be a valid press so count it.
     startTimer(m_pollIntervalUS);                             // Begin debouncing the button input
-//Serial.println("\n\n\n\n[1.0]  Released, changing to 'confirmingPress'");
+    //Serial.println("\n\n\n\n[1.0]  Released, changing to 'confirmingPress'");
     m_state = confirmingPress;
     break;
 
@@ -62,82 +62,116 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
         if(m_enableAsyncEvents && keyDown[m_menuLevel] != nullptr) keyDown[m_menuLevel]();
         buttonDownTime = millis();
         m_state = pressed;
-//Serial.println("[2.1]  'confirmingPress', changing to 'pressed'");
+        startTimer(m_longKeyPressMS * 1000);                  // we should get back and check if key is still pressed after m_longKeyPressMS interval event if not interrupt occured
       } else {                                                // Otherwise it was a false alarm
         m_state = released;
-//Serial.println("[2.2]  'confirmingPress', changing to (still)'released'\n");
+        //Serial.println("[2.2]  'confirmingPress', changing to (still)'released'\n");
       }
       setButtonChangeInterrupt(true);                         // Begin monitoring pin again
     } else {
       startTimer(m_pollIntervalUS);                           // Keep sampling pin state
-//Serial.println(String("\t[2.0]  'confirmingPress', Total polls: ") + totalPolls + ", Valid polls: " + validPolls);
     }
     break;
 
-  case pressed:                                               // Currently pressed until now, but there was a change on the pin
+  case pressed: {                                             // Currently pressed until now, but there was a change on the pin
+    if (millis() - buttonDownTime >= m_longKeyPressMS){       // longPress timer expired and we still have button pressed, let's run the action immideatly
+      longKeyPressOccurred = true;  m_longKeyPressMenuLevel = m_menuLevel;
+      if(m_enableAsyncEvents && longKeyPress[m_menuLevel] != nullptr)  longKeyPress[m_menuLevel]();
+    }
+
+    m_state = confirmingRelease;                              // from now on we just wait for proper button release
+    if(digitalRead(m_pin) == m_pressedState){
+      validPolls = 0; totalPolls = 0;                         // Button is still pressed, keep watching for interrupt
+      return;
+    }
+
+    // otherwise we do have interrupt, let's confirm
+    validPolls = 1; totalPolls = 1;                           // This is first poll and it was just released by definition of state
     setButtonChangeInterrupt(false);                          // Turn off this interrupt to ignore inputs while we wait to check if valid release
     startTimer(m_pollIntervalUS);                             // Start timer and start polling the button to debounce it
-    validPolls = 1; totalPolls = 1;                           // This is first poll and it was just released by definition of state
-    m_state = confirmingRelease;
 //Serial.println("[3.0]  Pressed, Changing to 'confirmingRelease'");
     break;
+  }
 
-  case confirmingRelease:                                     // we get here when debounce timer alarms (onchange interrupt disabled remember)
+  case confirmingRelease: {                                   // we get here when debounce timer alarms (onchange interrupt disabled remember)
     // Evaluate polling history and make a decision; done differently because we can't afford to miss a release, we keep polling until it is released.
     totalPolls++;
-    if(digitalRead(m_pin) != m_pressedState){
-      validPolls++;
-      if(totalPolls >= InterruptButton::m_targetPolls && validPolls * 2 > totalPolls) {                       // We have a valid release.
-        if((millis() - buttonDownTime) >= m_longKeyPressMS) { // JUST COMPLETED DEBOUNCING A LONGPRESS (DON'T WAIT FOR DOUBLECLICK)
-          longKeyPressOccurred = true;  m_longKeyPressMenuLevel = m_menuLevel;
-          if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
-          if(m_enableAsyncEvents && longKeyPress[m_menuLevel] != nullptr)  longKeyPress[m_menuLevel]();
-          m_state = released;
-//Serial.println("[4.1]  'confirmingRelease', longKeyPress detected, changing to 'released'");
-        } else if(debouncingDoubleClick){                      // JUST COMPLETED DEBOUNCING A DOUBLECLICK
-          doubleClickOccurred = true;   m_doubleClickMenuLevel = m_menuLevel;
-          if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
-          if(m_enableAsyncEvents && doubleClick[m_menuLevel] != nullptr)   doubleClick[m_menuLevel]();                        
-          debouncingDoubleClick = false;
-          m_state = released;
-//Serial.println("[4.2]  'confirmingRelease', debounce of doubleClick completed, changing to 'released'");
-        } else {                                              // JUST DETECTED START OF KEYPRESS OR DOUBLECLICK
-          buttonUpTime = millis();
-          startTimer(uint32_t(m_doubleClickMS * 1000));       // Set timeout to come back in case it was a single click
-          m_state = wtgForDoubleClick;
-//Serial.println("[4.3]  'confirmingRelease', keypress or doubleclick detected, changing to 'wtgForDoubleClick'");
-        }
-        setButtonChangeInterrupt(true);                       // Begin monitoring pin again
-      } else {
-        startTimer(m_pollIntervalUS);                         // Keep sampling pin state until release is confirmed
-//Serial.println(String("\t[4.0]  'confirmingRelease', Total polls: ") + totalPolls + ", Valid polls: " + validPolls);
-      }
-    } else {
-      if(validPolls > 0) {
-        validPolls--;
-      } else {
-        totalPolls = 0;                                       // Key is being held down, don't let total polls get too far ahead.
-      }
-      startTimer(m_pollIntervalUS);                           // Keep sampling pin state until released
-    }
-    break;
 
-  case wtgForDoubleClick:
+    if(digitalRead(m_pin) == m_pressedState){                 // false release
+      if(validPolls > 0)
+        validPolls--;
+      else
+        totalPolls = 0;                                       // Key is being held down, don't let total polls get too far ahead.
+
+      startTimer(m_pollIntervalUS);                           // Keep sampling pin state until released
+      return;
+    }
+    
+    validPolls++;
+    if(totalPolls < InterruptButton::m_targetPolls || validPolls * 2 <= totalPolls){                        // not enough polls to decide
+      startTimer(m_pollIntervalUS);                           // Keep sampling pin state until release is confirmed
+      return;
+    }
+
+    // if it is just a release after long_press
+    if (millis() - buttonDownTime >= m_longKeyPressMS){
+      if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)
+        keyUp[m_menuLevel]();
+      m_state = released;
+      setButtonChangeInterrupt(true);                       // Begin monitoring pin again
+      return;
+    }
+
+    if(debouncingDoubleClick){                            // JUST COMPLETED DEBOUNCING A DOUBLECLICK
+      doubleClickOccurred = true;   m_doubleClickMenuLevel = m_menuLevel;
+      if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
+      if(m_enableAsyncEvents && doubleClick[m_menuLevel] != nullptr)   doubleClick[m_menuLevel]();
+      debouncingDoubleClick = false;
+      m_state = released;
+      setButtonChangeInterrupt(true);                       // Begin monitoring pin again
+      return;
+      //Serial.println("[4.2]  'confirmingRelease', debounce of doubleClick completed, changing to 'released'");
+    }
+
+    // there is a double-click callback defined, need to wait for possible second click
+    if (doubleClick[m_menuLevel] || syncDoubleClick[m_menuLevel]){
+        m_state = wtgForDoubleClick;
+        buttonUpTime = millis();
+        setButtonChangeInterrupt(true);                       // Begin monitoring pin again
+        startTimer(uint32_t(m_doubleClickMS * 1000));         // Set timeout to come back in case it was a single click
+        return;
+    }
+
+    // THE EVENT WAS A BASIC KEYPRESS/Click
+    keyPressOccurred = true; m_keyPressMenuLevel = m_menuLevel;
+    if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
+    if(m_enableAsyncEvents && keyPress[m_menuLevel] != nullptr)      keyPress[m_menuLevel]();
+    m_state = released;                                     // Since we timedout, no second press and we have debounced already
+    setButtonChangeInterrupt(true);                         // Begin monitoring pin again
+    break;
+  }
+
+  case wtgForDoubleClick: {
     if((millis() - buttonUpTime) < m_doubleClickMS) {         // THE EVENT WAS A DOUBLECLICK
       setButtonChangeInterrupt(false);                        // Turn off this interrupt to ignore inputs while we wait to check if valid release
       validPolls = 1; totalPolls = 1;                         // This is first poll and it was just released by definition of state
       debouncingDoubleClick = true;
       m_state = confirmingRelease;
       startTimer(m_pollIntervalUS);                           // Kills doublclick interval timer, and starts debounce timer and start polling the button
-//Serial.println(String("[5.0]  'wtgForDoubleClick', doubleclick detected, changing to 'confirmingRelease' - ClickTiming: ") + (millis() - buttonUpTime));
-    } else {                                                  // THE EVENT WAS A BASIC KEYPRESS
+      return;
+      //Serial.println(String("[5.0]  'wtgForDoubleClick', doubleclick detected, changing to 'confirmingRelease' - ClickTiming: ") + (millis() - buttonUpTime));
+    } else {                                                  // too late for double-click, consider EVENT AS A BASIC KEYPRESS
+      debouncingDoubleClick = false;
       keyPressOccurred = true; m_keyPressMenuLevel = m_menuLevel;
       if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
       if(m_enableAsyncEvents && keyPress[m_menuLevel] != nullptr)      keyPress[m_menuLevel]();
       m_state = released;                                     // Since we timedout, no second press and we have debounced already
-//Serial.println(String("[5.1]  'wtgForDoubleClick', keyPress detected, changing to 'released' - ClickTiming: ") + (millis() - buttonUpTime) + "\n");
+      setButtonChangeInterrupt(true);                         // Begin monitoring pin again
     }
     break;
+  }
+  default:                                                    // catch-all case
+    return;
   }
 }
 
