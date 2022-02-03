@@ -21,6 +21,7 @@ InterruptButton::InterruptButton(uint8_t pin, uint8_t pinMode, uint8_t pressedSt
 InterruptButton::~InterruptButton() {
   detachInterrupt(digitalPinToInterrupt(m_pin));
   killTimer();
+  killRepeatTimer();
 }
 
 // Initialiser -------------------------------------------------------------------
@@ -77,6 +78,9 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
     if (millis() - buttonDownTime >= m_longKeyPressMS){       // longPress timer expired and we still have button pressed, let's run the action immideatly
       longKeyPressOccurred = true;  m_longKeyPressMenuLevel = m_menuLevel;
       if(m_enableAsyncEvents && longKeyPress[m_menuLevel] != nullptr)  longKeyPress[m_menuLevel]();
+
+      if (repeat && !m_repeatTimer)                           // run 'repeat' timer if "repeat on Hold" is enabled
+        startRepeatTimer(m_holdRepeatUS);
     }
 
     m_state = confirmingRelease;                              // from now on we just wait for proper button release
@@ -118,6 +122,7 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
       if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)
         keyUp[m_menuLevel]();
       m_state = released;
+      killRepeatTimer();                                    // stop repeat on button release
       setButtonChangeInterrupt(true);                       // Begin monitoring pin again
       return;
     }
@@ -165,6 +170,7 @@ void IRAM_ATTR InterruptButton::readButton(){                   // If we get her
       keyPressOccurred = true; m_keyPressMenuLevel = m_menuLevel;
       if(m_enableAsyncEvents && keyUp[m_menuLevel] != nullptr)         keyUp[m_menuLevel]();
       if(m_enableAsyncEvents && keyPress[m_menuLevel] != nullptr)      keyPress[m_menuLevel]();
+      killRepeatTimer();
       m_state = released;                                     // Since we timedout, no second press and we have debounced already
       setButtonChangeInterrupt(true);                         // Begin monitoring pin again
     }
@@ -203,20 +209,25 @@ void InterruptButton::clearInputs(void){
 
 // Synchronous Event Routines ------------------------------- --
 void InterruptButton::processSyncEvents(void){
-  if(m_enableSyncEvents){
+  if(!m_enableSyncEvents)
+    return;
+
     if(keyPressOccurred) {
       if(syncKeyPress[m_keyPressMenuLevel] != nullptr)         syncKeyPress[m_keyPressMenuLevel]();
-      keyPressOccurred = false; 
-    }        
+      keyPressOccurred = false;
+    }
     if(longKeyPressOccurred){
       if(syncLongKeyPress[m_longKeyPressMenuLevel] != nullptr) syncLongKeyPress[m_longKeyPressMenuLevel]();
-      longKeyPressOccurred = false; 
+      longKeyPressOccurred = false;
     }
     if(doubleClickOccurred){
       if(syncDoubleClick[m_doubleClickMenuLevel] != nullptr)   syncDoubleClick[m_doubleClickMenuLevel]();
-      doubleClickOccurred = false; 
+      doubleClickOccurred = false;
     }
-  }
+    if (onhold && syncKeyHold[m_onHoldMenuLevel]){
+      syncKeyHold[m_onHoldMenuLevel]();
+      onhold = false;
+    }
 }
 
 void IRAM_ATTR InterruptButton::setButtonChangeInterrupt(bool enabled, bool clearFlags){
@@ -253,5 +264,48 @@ void IRAM_ATTR InterruptButton::killTimer(){
     esp_timer_stop(m_buttonTimer);
     esp_timer_delete(m_buttonTimer);
     m_buttonTimer = nullptr;
+  }
+}
+
+
+void IRAM_ATTR InterruptButton::repeatButton_static(void *arg){ 
+  reinterpret_cast<InterruptButton*>(arg)->doButtonRepeat();
+}
+
+void IRAM_ATTR InterruptButton::startRepeatTimer(uint64_t period){
+  esp_timer_create_args_t tmrConfig;
+  tmrConfig.arg = reinterpret_cast<void*>(this);
+  tmrConfig.callback = &InterruptButton::repeatButton_static;
+  tmrConfig.dispatch_method = ESP_TIMER_TASK;
+  tmrConfig.skip_unhandled_events = true;
+  tmrConfig.name = "btn_repeat_timer";
+
+  killRepeatTimer();
+  esp_timer_create(&tmrConfig, &m_repeatTimer);
+  esp_timer_start_periodic(m_repeatTimer, period);
+}
+
+void IRAM_ATTR InterruptButton::killRepeatTimer(){
+  if(m_repeatTimer) {
+    esp_timer_stop(m_repeatTimer);
+    esp_timer_delete(m_repeatTimer);
+    m_repeatTimer = nullptr;
+  }
+}
+
+void IRAM_ATTR InterruptButton::doButtonRepeat(){
+  if (!repeat){ // oops, missfire
+    killRepeatTimer();
+    return;
+  }
+
+  if (m_enableAsyncEvents && keyHold[m_menuLevel])
+    keyHold[m_menuLevel]();
+  else if (m_enableAsyncEvents && keyPress[m_menuLevel])    // simulate keyPress if no specific handler for keyHold
+    keyPress[m_menuLevel]();
+
+  if (m_enableSyncEvents){
+    onhold = true;
+    m_onHoldMenuLevel = m_menuLevel;
   }
 }
