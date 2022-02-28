@@ -3,7 +3,7 @@
 /* ToDo
   make the following procedures arduino independent:
     pin onChange interrupt control, ie setup fully once, then simple bit set enable/disable.
-    pin reading (digitalRead) change to IDF's MUX register acces
+    pin reading (digitalRead) change to IDF's MUX register acces              (DONE!)
     setting inputs (pinMode)
   hopefully set pin onchange interrupt toggle to a single command once set up
 
@@ -36,7 +36,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
 
     case ConfirmingPress:                                       // we get here each time the debounce timer expires (onchange interrupt disabled remember)
       btn->m_totalPolls++;                                                    // Count the number of total reads
-      if(digitalRead(btn->m_pin) == btn->m_pressedState) btn->m_validPolls++; // Count the number of valid 'PRESSED' reads
+      if(gpio_get_level(btn->m_pin) == btn->m_pressedState) btn->m_validPolls++; // Count the number of valid 'PRESSED' reads
       if(btn->m_totalPolls >= m_targetPolls){                                 // If we have checked the button enough times, then make a decision on key state
         if(btn->m_validPolls * 2 > btn->m_totalPolls) {                       // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
           if(!btn->m_wtgForDoubleClick){
@@ -65,7 +65,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
     case WaitingForRelease:  // we get here when debounce timer alarms (onchange interrupt disabled remember)
       // Evaluate polling history and make a decision; done differently because we can't afford to miss a release, we keep polling until it is released.
       btn->m_totalPolls++;
-      if(digitalRead(btn->m_pin) != btn->m_pressedState){
+      if(gpio_get_level(btn->m_pin) != btn->m_pressedState){
         btn->m_validPolls++;
         if(btn->m_totalPolls >= m_targetPolls && btn->m_validPolls * 2 > btn->m_totalPolls) { // VALID RELEASE DETECTED
           killTimer(btn->m_buttonLPandRepeatTimer);                                           // Kill the longPress and autoRepeat timer associated with holding button down
@@ -223,7 +223,7 @@ void InterruptButton::begin(void){
     }
     pinMode(m_pin, m_pinMode);                                              // Set pullups for button pin, if any
     setButtonChangeInterrupt(this, true);                                   // Enable onchange interrupt for button pin 
-    m_state = (digitalRead(m_pin) == m_pressedState) ? Pressed : Released;  // Set to current state when initialising
+    m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released;  // Set to current state when initialising
   } else {
     Serial.println("Error: Interrupt Button must be 'INPUT_PULLUP' or 'INPUT_PULLDOWN' or 'INPUT'");
   }
