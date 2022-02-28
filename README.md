@@ -41,7 +41,7 @@ These events are based on the same debounce and delay configuration for synchron
   * Synchronous events are invoked by calling the 'processSyncEvents()' member function in the main loop and *are subject to the main loop timing.*
 
 ### Example Usage
-This is an output of the serial port from the example file.  Here just the Serial.Println(), but you can replace that with your own code to do what you need.  (also note, I got 'sync' and 'async' backwards in screenshot below)
+This is an output of the serial port from the example file.  Here just the Serial.Println(), but you can replace that with your own code to do what you need.
 ![This is an image](https://github.com/rwmingis/InterruptButton/blob/1c432dbd9c543d47633403bc7bc0d5200b2fdede/images/example.png)
 
 ## Roadmap Forward ##
@@ -56,7 +56,9 @@ This is an output of the serial port from the example file.  Here just the Seria
 
 ### See the example file, as it covers most interesting things, but I believe it is fairly self-explanatory.
 
-*  This libary should not be used for mission critical or mass deployments with out the developer satisfying themselves that it is stabile for their purpose.  My poor formatting was based on bad habits from my C++ programming course in university in 1998 and hasn't improved since.  I feel the code works great and I generated this library because I couldn't find anything similar and the ones based on loop polling didn't work at all with long loop times.  Interrupts can be a bit cantankerous, but this seems to work nearly flawlessly in my experience, but I imagine maybe not so for everyone and welcome any suggestions for improvements.*
+*  This libary should not be used for mission critical or mass deployments.  The developer should satisf themselves that this library is stable for their purpose.  I feel the code works great and I generated this library because I couldn't find anything similar and the ones based on loop polling didn't work at all with long loop times.  Interrupts can be a bit cantankerous, but this seems to work nearly flawlessly in my experience, but I imagine maybe not so for everyone and welcome any suggestions for improvements.*  
+
+Special thanks to @vortigont for all his intial input and feedback.
 
 
 
