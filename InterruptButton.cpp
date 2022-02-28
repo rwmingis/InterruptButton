@@ -13,10 +13,10 @@ static const char* TAG = "IBTN";    // IDF log tag
 
 /* ToDo
   make the following procedures arduino independent:
-    pin onChange interrupt control, ie setup fully once, then simple bit set enable/disable.
+    pin onChange interrupt control, ie setup fully once, then simple bit set enable/disable.    (DONE!)
     pin reading (digitalRead) change to IDF's MUX register acces              (DONE!)
-    setting inputs (pinMode)
-  hopefully set pin onchange interrupt toggle to a single command once set up
+    setting inputs (pinMode)                                                  (DONE!)
+  hopefully set pin onchange interrupt toggle to a single command once set up (DONE!)
 
 digitalPinToInterrupt() and functional callback might be more complicated, depends on further lib's architecture - an open question to consider
 
@@ -153,17 +153,8 @@ void IRAM_ATTR InterruptButton::doubleClickTimeout(void *arg){
 }
 
 //-- Helper method enable or disable the 'onChange' interrupt for the button -----------------------------
-void IRAM_ATTR InterruptButton::setButtonChangeInterrupt(gpio_num_t gpio, bool enabled, bool clearFlags){
-
+void IRAM_ATTR InterruptButton::setButtonChangeInterrupt(gpio_num_t gpio, bool enabled){
   enabled ? gpio_intr_enable(gpio) : gpio_intr_disable(gpio);
-
-/*
-  if(enabled) {   // Set the onChange interrupt state for the pin
-    attachInterrupt(digitalPinToInterrupt(btn->m_pin), std::bind(&InterruptButton::readButton, btn), CHANGE);
-  } else {
-    detachInterrupt(digitalPinToInterrupt(btn->m_pin));
-  }
-*/
 }
 
 //-- Helper method to simplify starting a timer ----------------------------------------------------------
@@ -208,14 +199,22 @@ InterruptButton::InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t 
                                  m_doubleClickMS(doubleClickMS)
 {
   // gpio number sanity check
-  if (GPIO_IS_VALID_GPIO(m_pin))
+  if (GPIO_IS_VALID_GPIO(pin))
     m_pin = static_cast<gpio_num_t>(pin);
   else {
-    ESP_LOGW(TAG, "%d is not valid gpio on this platform", m_pin);
+    ESP_LOGW(TAG, "%d is not valid gpio on this platform", pin);
     m_pin = GPIO_NUM_NC;
   }
 
   m_pollIntervalUS = (debounceUS / m_targetPolls > 65535) ? 65535 : debounceUS / m_targetPolls;
+
+  eventActions = new func_ptr*[m_numMenus];
+  for(int menu = 0; menu < m_numMenus; menu++){
+    eventActions[menu] = new func_ptr[NumEventTypes];
+    for(int evt = 0; evt < NumEventTypes; evt++){
+      eventActions[menu][evt] = nullptr;
+    }
+  }
 }
 
 // Destructor --------------------------------------------------------------------
@@ -226,22 +225,13 @@ InterruptButton::~InterruptButton() {
   
   for(int menu = 0; menu < m_numMenus; menu++) delete [] eventActions[menu];
   delete [] eventActions;
+  gpio_reset_pin(m_pin);
 }
 
 // Initialiser -------------------------------------------------------------------
 void InterruptButton::begin(void){
 
     if(!m_firstButtonInitialised) m_firstButtonInitialised = true;
-
-    if (!eventActions){
-      eventActions = new func_ptr*[m_numMenus];
-      for(int menu = 0; menu < m_numMenus; menu++){
-        eventActions[menu] = new func_ptr[NumEventTypes];
-        for(int evt = 0; evt < NumEventTypes; evt++){
-          eventActions[menu][evt] = nullptr;
-        }
-      }
-    }
 
     gpio_config_t gpio_conf = {};
     gpio_conf.mode = m_pinMode;
@@ -256,7 +246,6 @@ void InterruptButton::begin(void){
 
     gpio_isr_handler_add(m_pin, InterruptButton::readButton, (void*)this);
 
-    //setButtonChangeInterrupt(this, true);                                     // Enable onchange interrupt for button pin 
     m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released; // Set to current state when initialising
 }
 

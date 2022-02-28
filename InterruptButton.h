@@ -5,6 +5,7 @@
 #include "esp_timer.h"
 #include <functional>  // Necessary to use std::bind to bind arguments to ISR in attachInterrupt()
 
+
 // -- Interrupt Button and Debouncer ---------------------------------------------------------------------------------------
 // -- ----------------------------------------------------------------------------------------------------------------------
 class InterruptButton {
@@ -25,7 +26,7 @@ class InterruptButton {
     static void longPressDelay(void *arg);                                  // Wrapper / callback to excecute a longPress event
     static void autoRepeatPressEvent(void *arg);                            // Wrapper / callback to excecute a autoRepeatPress event
     static void doubleClickTimeout(void *arg);                              // Used to separate double-clicks from regular keyPress's
-    static void setButtonChangeInterrupt(gpio_num_t gpio, bool enabled, bool clearFlags = true);    // Helper function to simplify toggling the pin change interrupt
+    static void setButtonChangeInterrupt(gpio_num_t gpio, bool enabled);    // Helper function to simplify toggling the pin change interrupt
     static void startTimer(esp_timer_handle_t &timer, uint32_t duration_US, void (*callBack)(void* arg), InterruptButton* btn, const char *msg);
     static void killTimer(esp_timer_handle_t &timer);                       // Helper function to kill a timer
 
