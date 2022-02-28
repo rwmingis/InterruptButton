@@ -42,7 +42,7 @@ These events are based on the same debounce and delay configuration for synchron
 
 ### Example Usage
 This is an output of the serial port from the example file.  Here just the Serial.Println(), but you can replace that with your own code to do what you need.  (also note, I got 'sync' and 'async' backwards in screenshot below)
-![This is an image](https://github.com/rwmingis/InterruptButton/images/example.png)
+![This is an image](https://github.com/rwmingis/InterruptButton/blob/1c432dbd9c543d47633403bc7bc0d5200b2fdede/images/example.png)
 
 ## Roadmap Forward ##
   * Consider Adding button modes such as momentary, latching, etc.
