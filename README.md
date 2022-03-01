@@ -1,7 +1,7 @@
 # InterruptButton
-This is an interrupt based button event library for the ESP32 suitable in the Arduino framework and soon to be ESP IDF framework. It uses the 'onChange' interrupt for a given pin and the ESP high precision timer to carry the necessary pin-polling to facilitate a simple, but very reliable debouncing routine.  Once de-bounced, actions bound to certain button events including 'Key Down', 'Key Up', 'Key Press', 'Long Key Press', 'Auto-Repeat Press', and 'Double-clicks' are available to bind your own functions to.
+This is an interrupt based button event library for the ESP32 suitable in the Arduino framework the ESP IDF framework.  It uses the 'change' interrupt (rising or falling) for a given pin and the ESP high precision timer to carry the necessary pin-polling to facilitate a simple, but reliable debouncing routine.  Once de-bounced, actions bound to certain button events including 'Key Down', 'Key Up', 'Key Press', 'Long Key Press', 'Auto-Repeat Press', and 'Double-clicks' are available to bind your own functions to.
 
-With a built in user-defined menu/paging system, each button can be bound to many layers of different functionality depending on what the user interface is displaying at a given moment.  This means it can work as a simple button, all the way up to a full user interface using a single button with different combinations of special key presses for navigation.
+With a built in user-defined menu/paging system, each button can be bound to multiple layers of different functionality depending on what the user interface is displaying at a given moment.  This means it can work as a simple button, all the way up to a full user interface using a single button with different combinations of special key presses for navigation.
 
 The use of interrupts instead of laborious button polling means that actions bound to the button are NOT limited to the main loop frequency which significantly reduces the chance of missed presses with long main loop durations.
 
@@ -11,9 +11,9 @@ There are 6 Asynchronous events (actioned immediately via intterrupt) , 4 Synchr
 
 ### Asynchronous Events 
 Asynchronous Events are actioned immediately by calling user defined functions attached to specific button events as an Interrupt Service Routine (ISR).
-  * keyDown
-  * keyUp
-  * keyPress (combination of keyDown and keyUp)
+  * keyDown - Happens anytime key is depressed (even if held), be it a keyPress, longKeyPress, or a double-click
+  * keyUp - Happens anytime key is released, be it a keyPress, longKeyPress, end of an AutoRepeatPress, or a double-click
+  * keyPress - Occurs upon keyUp only if it is not a longKeyPress, AutoRepeatPress, or double-click
   * longKeyPress (required press time is user configurable)
   * AutoRepeatPress (Rapid fire, if enabled, but not defined, then the standard keyPress action is used)
   * doubleClick (max time between clicks is user configurable)
@@ -21,7 +21,7 @@ Asynchronous Events are actioned immediately by calling user defined functions a
 Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is slower and could cause SPI bus clashes though I have not run into this issue yet.  Furthermore, the user should careful calling API functions that are not defined in with IRAM_ATTR which could force the code back into Flash memory.  This is a precautionary measure and a limitation of the chip/frame work (not the libary); however, testing has shown this can still be done without issue in some cases.  For processor intesive routines, use 'Sychronous Events'
   
 ### Synchronous Events
-Synchronous events are actioned when the 'processSyncEvents()' member function is called in the main loop.  Like Asynchronous events, they are actioned by calling user-defined functions as bound to specific button events.
+Synchronous events correspond to the Asynchronous events above, but are actioned when the 'processSyncEvents()' member function is called in the main loop.  For this reason, keyUp and keyDown are not included due to the loop timing lag.  Like Asynchronous events, they are actioned by calling user-defined functions as bound to specific button events - Noting that these functions can be defined and bound as Lambda functions.
   * syncKeyPress
   * syncLongKeyPress
   * syncAutoRepeatPress
@@ -35,7 +35,6 @@ These events are based on the same debounce and delay configuration for synchron
   
 ### Other Features
   * The Asynchronous and Synchronous events can enabled or disabled globally by type (Async and Sync)
-  * The pin, the pin level, and pull up / pull down mode can all be set on a per button instance basis.
   * The timing for debounce, longPress, AutoRepeatPress and doubleClick can be set on a per button instance basis.
   * Asynchronous events are called *Immediately* after debouncing
   * Synchronous events are invoked by calling the 'processSyncEvents()' member function in the main loop and *are subject to the main loop timing.*
@@ -46,7 +45,6 @@ This is an output of the serial port from the example file.  Here just the Seria
 
 ## Roadmap Forward ##
   * Consider Adding button modes such as momentary, latching, etc.
-  * Remove any reference to the Arduino API so that this libary will work on the ESP-IDF OR the Arduino Frameworks
   
 
 ## Known Limitations:
