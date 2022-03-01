@@ -132,6 +132,12 @@ Menu 0, Button 2: ASYNC Key Up:                66121 ms
 Menu 0, Button 2: SYNC AutoRepeat Press:       [67044 ms]
 ```
 
+## Functional Flow Diagram ##
+The flow diagram below shows the basic function of the library.  It is pending an update to include some recent updates and additions such as 'autoRepeatPress'
+
+![This is an image](https://github.com/rwmingis/InterruptButton/blob/d06999159451a2a2e70f43a48129859f3170da28/images/flowDiagram.png)
+
+
 ## Roadmap Forward ##
   * Consider Adding button modes such as momentary, latching, etc.
  
