@@ -11,21 +11,21 @@ There are 6 Asynchronous events (actioned immediately via intterrupt) , 4 Synchr
 
 ### Asynchronous Events 
 Asynchronous Events are actioned immediately by calling user defined functions attached to specific button events as an Interrupt Service Routine (ISR).
-  * keyDown - Happens anytime key is depressed (even if held), be it a keyPress, longKeyPress, or a double-click
-  * keyUp - Happens anytime key is released, be it a keyPress, longKeyPress, end of an AutoRepeatPress, or a double-click
-  * keyPress - Occurs upon keyUp only if it is not a longKeyPress, AutoRepeatPress, or double-click
-  * longKeyPress (required press time is user configurable)
-  * AutoRepeatPress (Rapid fire, if enabled, but not defined, then the standard keyPress action is used)
-  * doubleClick (max time between clicks is user configurable)
+  * **keyDown** - Happens anytime key is depressed (even if held), be it a keyPress, longKeyPress, or a double-click
+  * **keyUp** - Happens anytime key is released, be it a keyPress, longKeyPress, end of an AutoRepeatPress, or a double-click
+  * **keyPress** - Occurs upon keyUp only if it is not a longKeyPress, AutoRepeatPress, or double-click
+  * **longKeyPress** (required press time is user configurable)
+  * **AutoRepeatPress** (Rapid fire, if enabled, but not defined, then the standard keyPress action is used)
+  * **doubleClick** (max time between clicks is user configurable)
   
 Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is slower and could cause SPI bus clashes though I have not run into this issue yet.  Furthermore, the user should careful calling API functions that are not defined in with IRAM_ATTR which could force the code back into Flash memory.  This is a precautionary measure and a limitation of the chip/frame work (not the libary); however, testing has shown this can still be done without issue in some cases.  For processor intesive routines, use 'Sychronous Events'
   
 ### Synchronous Events
 Synchronous events correspond to the Asynchronous events above, but are actioned when the 'processSyncEvents()' member function is called in the main loop.  For this reason, keyUp and keyDown are not included due to the loop timing lag.  Like Asynchronous events, they are actioned by calling user-defined functions as bound to specific button events - Noting that these functions can be defined and bound as Lambda functions.
-  * syncKeyPress
-  * syncLongKeyPress
-  * syncAutoRepeatPress
-  * syncDoubleClick
+  * **syncKeyPress**
+  * **syncLongKeyPress**
+  * **syncAutoRepeatPress**
+  * **syncDoubleClick**
 
 These events are based on the same debounce and delay configuration for synchronous events listed above.
 
