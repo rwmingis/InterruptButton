@@ -36,8 +36,8 @@ void menu1Button2doubleClick(void);
 
 
 //-- BUTTON VARIABLES -----------------------------------------
-InterruptButton button1(BUTTON_1, LOW);
-InterruptButton button2(BUTTON_2, LOW);
+InterruptButton button1(BUTTON_1, INPUT_PULLUP, LOW);
+InterruptButton button2(BUTTON_2, INPUT_PULLUP, LOW);
 
 //== MAIN SETUP FUNCTION ===========================================================================
 //==================================================================================================
