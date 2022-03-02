@@ -3,8 +3,7 @@
 
 #include "driver/gpio.h"
 #include "esp_timer.h"
-#include <functional>  // Necessary to use std::bind to bind arguments to ISR in attachInterrupt()
-
+#include <functional>     // Necessary to use std::bind to bind arguments to ISR in attachInterrupt()
 
 // -- Interrupt Button and Debouncer ---------------------------------------------------------------------------------------
 // -- ----------------------------------------------------------------------------------------------------------------------
@@ -26,7 +25,7 @@ class InterruptButton {
     static void longPressDelay(void *arg);                                  // Wrapper / callback to excecute a longPress event
     static void autoRepeatPressEvent(void *arg);                            // Wrapper / callback to excecute a autoRepeatPress event
     static void doubleClickTimeout(void *arg);                              // Used to separate double-clicks from regular keyPress's
-    static void setButtonChangeInterrupt(gpio_num_t gpio, bool enabled);    // Helper function to simplify toggling the pin change interrupt
+    static void setButtonChangeInterrupt(InterruptButton* btn, bool enabled, bool clearFlags = true);    // Helper function to simplify toggling the pin change interrupt
     static void startTimer(esp_timer_handle_t &timer, uint32_t duration_US, void (*callBack)(void* arg), InterruptButton* btn, const char *msg);
     static void killTimer(esp_timer_handle_t &timer);                       // Helper function to kill a timer
 
@@ -42,9 +41,10 @@ class InterruptButton {
     esp_timer_handle_t m_buttonLPandRepeatTimer;                            // Instance specific timer for button longPress and autoRepeat timing
     esp_timer_handle_t m_buttonDoubleClickTimer;                            // Instance specific timer for policing double-clicks
 
-    uint8_t m_pressedState;                                                 // Instance specific particulars about the hardware button
+    uint8_t m_pressedState;                                                 // State of button when it is pressed (LOW or HIGH)
     gpio_num_t m_pin;                                                       // Button gpio
     gpio_mode_t m_pinMode;                                                  // GPIO mode: IDF's input/output mode
+
     volatile uint8_t m_keyPressMenuLevel, m_longKeyPressMenuLevel,          // Variables to store current menulevel when event occurs (the menu level ...
                      m_autoRepeatPressMenuLevel, m_doubleClickMenuLevel;    // ... may have been changed by time sync event called in main loop))
     uint16_t m_pollIntervalUS, m_longKeyPressMS, m_autoRepeatMS,            // Timing variables
@@ -54,7 +54,6 @@ class InterruptButton {
     volatile bool m_longPress_preventKeyPress;                              // Boolean flag to prevent firing a keypress if a long press occurred (outside of polling fuction)
     volatile uint64_t m_buttonUpTimeUS;                                     // Timing variable to track double click interval.
     volatile uint16_t m_validPolls = 0, m_totalPolls = 0;                   // Variables to conduct debouncing algoritm
-
 
   public:
     enum eventTypes {
@@ -78,13 +77,11 @@ class InterruptButton {
     static uint8_t getMenuLevel();                                          // Retrieves menu level
 
     // Non-static instance specific member declarations ----------------------------------
-    InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t pinMode = GPIO_MODE_INPUT,      // Class Constructor
-                    uint16_t longPressMS = 750, uint16_t autoRepeatMS = 250,
+    InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t pinMode = GPIO_MODE_INPUT,     // Class Constructor
+                    uint16_t longKeyPressMS = 750, uint16_t autoRepeatMS = 250,
                     uint16_t doubleClickMS = 200, uint32_t debounceUS = 8000);
     ~InterruptButton();                                                     // Class Destructor
     void begin();                                                           // Instance initialiser    
-    gpio_num_t getGPIO() const { return m_pin;}                                    // return monitored gpio number
-
     void enableEvents(),            disableEvents();                        // Enable / Disable sync and async events together
     bool syncEventsEnabled = true,  asyncEventsEnabled = true;
     bool longPressEnabled = false,  autoRepeatEnabled = false,  doubleClickEnabled = false;
