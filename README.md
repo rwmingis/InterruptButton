@@ -21,13 +21,15 @@ Asynchronous Events are actioned immediately by calling user defined functions a
 Functions applied to the above events should be defined with the IRAM_ATTR attribute to place them in the onboard RAM rather than the flash storage area which is slower and could cause SPI bus clashes though I have not run into this issue yet.  Furthermore, the user should careful calling API functions that are not defined in with IRAM_ATTR which could force the code back into Flash memory.  This is a precautionary measure and a limitation of the chip/frame work (not the libary); however, testing has shown this can still be done without issue in some cases.  For processor intesive routines, use 'Sychronous Events'
   
 ### Synchronous Events
-Synchronous events correspond to the Asynchronous events above, but are actioned when the 'processSyncEvents()' member function is called in the main loop.  For this reason, keyUp and keyDown are not included due to the loop timing lag.  Like Asynchronous events, they are actioned by calling user-defined functions as bound to specific button events - Noting that these functions can be defined and bound as Lambda functions.
+Synchronous events correspond to the Asynchronous events above, but are actioned when the 'processSyncEvents()' member function is called in the main loop. For this reason, keyUp and keyDown are not included due to the loop timing lag.  Like Asynchronous events, they are actioned by calling user-defined functions as bound to specific button events - Noting that these functions can be defined and bound as Lambda functions.
   * **syncKeyPress**
   * **syncLongKeyPress**
   * **syncAutoRepeatPress**
   * **syncDoubleClick**
 
 These events are based on the same debounce and delay configuration for synchronous events listed above.
+
+Note, you may also do a lower level event management by manually polling the boolean members keyPressOccurred, longKeyPressOccurred, autoRepeatPressOccurred, and doubleClickOccurred to suit your program's requirements and calling functions manually once these values are true.  Remember to clear them once finished by setting to false.
 
 ### Multi-page/level events
   This is handy if you have several different GUI pages where all the buttons mean something different on a different page.  
@@ -140,6 +142,8 @@ The flow diagram below shows the basic function of the library.  It is pending a
 
 ## Roadmap Forward ##
   * Consider Adding button modes such as momentary, latching, etc.
+  * Consider a static member queue common across all instances to maintain order of events (and simplify processing the event actions in the main loop)
+  * Consider an RTOS queue.
  
 ## Known Limitations:
   * Like all ISR's the asynchronous code functions should be LIGHTWEIGHT and FAST
@@ -149,4 +153,4 @@ The flow diagram below shows the basic function of the library.  It is pending a
 
 *  This libary should not be used for mission critical or mass deployments.  The developer should satisfy themselves that this library is stable for their purpose.  I feel the code works great and I generated this library because I couldn't find anything similar and the ones based on loop polling didn't work at all with long loop times.  Interrupts can be a bit cantankerous, but this seems to work nearly flawlessly in my experience, but I imagine maybe not so for everyone and welcome any suggestions for improvements.*  
 
-Special thanks to @vortigont for all his input and feedback, particuarly with respect to methodology and implementing the ESP IDF functions to allow this library to work on both platforms.
+Special thanks to @vortigont for all his input and feedback, particuarly with respect to methodology, implementing the ESP IDF functions to allow this library to work on both platforms, and the suggestion of RTOS queues.
