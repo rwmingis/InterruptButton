@@ -11,9 +11,14 @@ class InterruptButton {
   private:
     enum pinState_t {
       Released, 
-      ConfirmingPress, 
+      ConfirmingPress,
+      Pressing,
       Pressed, 
-      WaitingForRelease
+      WaitingForRelease,
+      Releasing,
+      DblClickIdle,
+      DblClickWaiting,
+      DblClickTimeout
     };
 
     typedef void (*func_ptr)(void);
@@ -25,7 +30,6 @@ class InterruptButton {
     static void longPressDelay(void *arg);                                  // Wrapper / callback to excecute a longPress event
     static void autoRepeatPressEvent(void *arg);                            // Wrapper / callback to excecute a autoRepeatPress event
     static void doubleClickTimeout(void *arg);                              // Used to separate double-clicks from regular keyPress's
-    static void setButtonChangeInterrupt(InterruptButton* btn, bool enabled, bool clearFlags = true);    // Helper function to simplify toggling the pin change interrupt
     static void startTimer(esp_timer_handle_t &timer, uint32_t duration_US, void (*callBack)(void* arg), InterruptButton* btn, const char *msg);
     static void killTimer(esp_timer_handle_t &timer);                       // Helper function to kill a timer
 
@@ -36,7 +40,7 @@ class InterruptButton {
 
     // Non-static instance specific member declarations
     // ------------------------------------------------
-    volatile pinState_t m_state;                                            // Instance specific state machine variable
+    volatile pinState_t m_state, m_stateDblClick = DblClickIdle;            // Instance specific state machine variable
     esp_timer_handle_t m_buttonPollTimer;                                   // Instance specific timer for button debouncing
     esp_timer_handle_t m_buttonLPandRepeatTimer;                            // Instance specific timer for button longPress and autoRepeat timing
     esp_timer_handle_t m_buttonDoubleClickTimer;                            // Instance specific timer for policing double-clicks
@@ -50,10 +54,10 @@ class InterruptButton {
     uint16_t m_pollIntervalUS, m_longKeyPressMS, m_autoRepeatMS,            // Timing variables
              m_doubleClickMS;
      
-    volatile bool m_wtgForDoubleClick = false;                              // Boolean flag to manage program flow around doubleclick timing
     volatile bool m_longPress_preventKeyPress;                              // Boolean flag to prevent firing a keypress if a long press occurred (outside of polling fuction)
-    volatile uint64_t m_buttonUpTimeUS;                                     // Timing variable to track double click interval.
     volatile uint16_t m_validPolls = 0, m_totalPolls = 0;                   // Variables to conduct debouncing algoritm
+
+    func_ptr** eventActions = nullptr;                                      // Pointer to 2D array, event actions by row, menu levels by column.
 
   public:
     enum eventTypes {
@@ -71,9 +75,9 @@ class InterruptButton {
     };
 
     // Static class members shared by all instances of this object -----------------------
-    static void setMenuCount(uint8_t numberOfMenus);
-    static uint8_t getMenuCount(void);
-    static void setMenuLevel(uint8_t level);                                // Sets menu level across all buttons (ie buttons mean something different each page)
+    static void    setMenuCount(uint8_t numberOfMenus);                     // Sets number of menus/pages that each button has (can only be done before intialising first button)
+    static uint8_t getMenuCount(void);                                      // Retrieves total number of menus.
+    static void    setMenuLevel(uint8_t level);                             // Sets menu level across all buttons (ie buttons mean something different each page)
     static uint8_t getMenuLevel();                                          // Retrieves menu level
 
     // Non-static instance specific member declarations ----------------------------------
@@ -82,7 +86,7 @@ class InterruptButton {
                     uint16_t doubleClickMS = 200, uint32_t debounceUS = 8000);
     ~InterruptButton();                                                     // Class Destructor
     void begin();                                                           // Instance initialiser    
-    void enableEvents(),            disableEvents();                        // Enable / Disable sync and async events together
+    void enableEvents(), disableEvents();                                   // Enable / Disable sync and async events together
     bool syncEventsEnabled = true,  asyncEventsEnabled = true;
     bool longPressEnabled = false,  autoRepeatEnabled = false,  doubleClickEnabled = false;
 
@@ -92,30 +96,27 @@ class InterruptButton {
     uint16_t  getAutoRepeatInterval(void);
     void      setDoubleClickInterval(uint16_t intervalMS);                  // Updates autoRepeat Interval
     uint16_t  getDoubleClickInterval(void);
-   
 
-    // Asynchronous Event Routines ------------------   // References to external functions for Asychronous (instantaneous) events
-// References to external functions for Asychronous (instantaneous) events
-// These should be defined with IRAM_ATTR and be as short as possible.
-// Each one is a pointer to a dynamic array of function pointers
-    func_ptr** eventActions = nullptr;
+
+    // Routines to manage interface with external action functions associated with each event ---
+    // Any functions bound to Asynchronous (ISR driven) events should be defined with IRAM_ATTR attribute and be as brief as possible
+    // Any functions bound to Synchronous events (Actioned by loop call of "button.processSyncEvents()") may be longer and also may be defined as Lambda functions
+
     void bind(  uint8_t event, func_ptr action);                              // Used to bind/unbind action to an event at current m_menuLevel
     void unbind(uint8_t event);
     void bind(  uint8_t event, uint8_t menuLevel, func_ptr action);           // Used to bind/unbind action to an event at specified menu level
     void unbind(uint8_t event, uint8_t menuLevel);
-
     void action(uint8_t event, bool enabler);                                 // Helper function to simplify calling actions at current m_menulevel (good for async)
     void action(uint8_t event, uint8_t menuLevel, bool enabler);              // Helper function to simplify calling actions at specified menulevel (req'd for sync)
 
-    // Synchronous Event Routines -----------------   // References to external functions for Synchronous events
-    // These are run inside of main loop at button.processSyncEvents()
+    // For processing Synchronous events.
     volatile bool keyPressOccurred = false;
     volatile bool longKeyPressOccurred = false;
     volatile bool autoRepeatPressOccurred = false;
     volatile bool doubleClickOccurred = false;
-    bool inputOccurred(void);                         // Used as a simple test if there was ANY action on button, ie if polling.
-    void clearInputs(void);                           // Resets all Syncronous events flags
-    void processSyncEvents(void);                     // Used to action any Synchronous events recorded.
+    bool inputOccurred(void);                                                 // Used as a simple test if there was ANY action on button, ie if polling.
+    void clearInputs(void);                                                   // Resets all Syncronous events flags
+    void processSyncEvents(void);                                             // Used to action any Synchronous events recorded.
 };
 
 #endif
