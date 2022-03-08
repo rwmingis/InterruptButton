@@ -313,10 +313,11 @@ void InterruptButton::action(event_t event, uint8_t menuLevel){
   eventActions[menuLevel][event]();
 }
 
-void InterruptButton::enableEvent(event_t event, bool clearSyncEvents){
+void InterruptButton::enableEvent(event_t event){
+  if(event >= SyncKeyPress && event <= SyncDoubleClick || event == SyncEvents) clearSyncInputs();
   if(event <= SyncEvents && event != NumEventTypes) eventMask |= (1UL << (event));    // Set the relevant bit
 }
-void InterruptButton::disableEvent(event_t event, bool clearSyncEvents){
+void InterruptButton::disableEvent(event_t event){
   if(event <= SyncEvents && event != NumEventTypes) eventMask &= ~(1UL << (event));   // Clear the relevant bit
 }
 bool InterruptButton::eventEnabled(event_t event) {
@@ -347,8 +348,8 @@ bool InterruptButton::inputOccurred(void){
   return (keyPressOccurred || longKeyPressOccurred || autoRepeatPressOccurred || doubleClickOccurred); 
 }
 
-void InterruptButton::clearInputs(void){
-  keyPressOccurred = false; longKeyPressOccurred = false; doubleClickOccurred = false;
+void InterruptButton::clearSyncInputs(void){
+  keyPressOccurred = false; longKeyPressOccurred = false; autoRepeatPressOccurred = false; doubleClickOccurred = false;
 }
 
 void InterruptButton::processSyncEvents(void){
