@@ -85,15 +85,29 @@ class InterruptButton {
     static void    setMenuLevel(uint8_t level);                       // Sets menu level across all buttons (ie buttons mean something different each page)
     static uint8_t getMenuLevel();                                    // Retrieves menu level
 
+
+
     // Non-static instance specific member declarations ----------------------------------
     InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t pinMode = GPIO_MODE_INPUT,     // Class Constructor
                     uint16_t longKeyPressMS = 750, uint16_t autoRepeatMS = 250,
                     uint16_t doubleClickMS = 200, uint32_t debounceUS = 8000);
     ~InterruptButton();                                               // Class Destructor
     void begin();                                                     // Instance initialiser
-    void enableEvent(event_t event, bool clearSyncEvents = true);
-    void disableEvent(event_t event, bool clearSyncEvents = true);
+    void enableEvent(event_t event);
+    void disableEvent(event_t event);
     bool eventEnabled(event_t event);
+
+
+
+
+
+
+
+
+
+
+    //bool syncEventsEnabled = true,  asyncEventsEnabled = true;
+    //bool longPressEnabled = false,  autoRepeatEnabled = false,  doubleClickEnabled = false;
 
     void      setLongPressInterval(uint16_t intervalMS);              // Updates LongPress Interval
     uint16_t  getLongPressInterval(void);
@@ -120,7 +134,7 @@ class InterruptButton {
     volatile bool autoRepeatPressOccurred = false;
     volatile bool doubleClickOccurred = false;
     bool inputOccurred(void);                                         // Used as a simple test if there was ANY action on button, ie if polling.
-    void clearInputs(void);                                           // Resets all Syncronous events flags
+    void clearSyncInputs(void);                                           // Resets all Syncronous events flags
     void processSyncEvents(void);                                     // Used to action any Synchronous events recorded.
 };
 
