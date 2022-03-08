@@ -125,7 +125,8 @@ void IRAM_ATTR menu0Button1keyPress(void)        { Serial.printf("Menu 0, Button
 void IRAM_ATTR menu0Button1longKeyPress(void)    { Serial.printf("Menu 0, Button 1: ASYNC Long Key Press:        %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button1autoRepeatPress(void) { Serial.printf("Menu 0, Button 1: ASYNC Auto Repeat Key Press: %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button1doubleClick(void)  {
-  Serial.printf("Menu 0, Button 1: ASYNC Double Click:          %lu ms - Changing to Menu Level ", millis());
+  Serial.printf("Menu 0, Button 1: ASYNC Double Click:          %lu ms - Disabling Sync events and changing to Menu Level ", millis());
+  button1.disableEvent(InterruptButton::SyncEvents); button2.disableEvent(InterruptButton::SyncEvents); 
   InterruptButton::setMenuLevel(1);
   Serial.println(InterruptButton::getMenuLevel());
 } 
@@ -148,7 +149,8 @@ void IRAM_ATTR menu0Button2keyPress(void)        { Serial.printf("Menu 0, Button
 void IRAM_ATTR menu0Button2longKeyPress(void)    { Serial.printf("Menu 0, Button 2: ASYNC Long Key Press:        %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button2autoRepeatPress(void) { Serial.printf("Menu 0, Button 2: ASYNC Auto Repeat Key Press: %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button2doubleClick(void)  { 
-  Serial.printf("Menu 0, Button 2: ASYNC Double Click:          %lu ms - Changing to Menu Level ", millis());
+  Serial.printf("Menu 0, Button 2: ASYNC Double Click:          %lu ms - Enabling Sync events and changing to Menu Level ", millis());
+  button1.enableEvent(InterruptButton::SyncEvents); button2.enableEvent(InterruptButton::SyncEvents); 
   InterruptButton::setMenuLevel(1);
   Serial.println(InterruptButton::getMenuLevel());
 } 
