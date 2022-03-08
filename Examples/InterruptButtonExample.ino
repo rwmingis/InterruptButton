@@ -112,7 +112,7 @@ void setup() {
   //button2.bind(InterruptButton::SyncDoubleClick,  1, [](){ Serial.printf("Menu 1, Button 2: SYNC DoubleClick:           [%lu ms]\n", millis()); });  
 
   //Clear any spurious clicks made during setup so we start fresh in the main loop.
-  button1.clearInputs(); button2.clearInputs();
+  button1.clearSyncInputs(); button2.clearSyncInputs();
   InterruptButton::setMenuLevel(0); 
 }
 
