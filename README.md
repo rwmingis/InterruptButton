@@ -1,11 +1,33 @@
 # InterruptButton
 This is an interrupt based button event library for the ESP32 suitable in the Arduino framework as well as the ESP IDF framework.  It uses the 'onChange' interrupt (rising or falling) for a given pin and the ESP high precision timer to carry the necessary pin-polling to facilitate a simple, but reliable debouncing and timing routines.  Once de-bounced, actions bound to certain button events including 'Key Down', 'Key Up', 'Key Press', 'Long Key Press', 'Auto-Repeat Press', and 'Double-clicks' are available to bind your own functions to.
 
+This makes employing extended button functions very. easy. to. do.  Just like below:
+
+```
+  // Global variable
+  InterruptButton button1(BUTTON_1, LOW);
+  
+  // Setup Function
+  button1.bind(InterruptButton::KeyPress, &menu0Button1keyPress);                // Bind a predefined function to the event
+  
+  // ------------------------------------------------------------------------------------------------------------------------------------
+  // That's it!  
+  // If we want to define another action like a synchronous double-click (that waits its turn in the main loop) then do next 2 lines
+  // ------------------------------------------------------------------------------------------------------------------------------------
+                                 
+  button1.bind(InterruptButton::SyncDoubleClick, [](){ /* do stuff here */ });  // You can use LAMBDA functions with no name for synchronous events
+
+  // Main Program
+  button1.processSyncEvents();                                                  // Only required if using sync events
+```
+
 With a built in user-defined menu/paging system, each button can be bound to multiple layers of different functionality depending on what the user interface is displaying at a given moment.  This means it can work as a simple button, all the way up to a full user interface using a single button with different combinations of special key presses for navigation.
 
 The use of interrupts instead of laborious button polling means that actions bound to the button are NOT limited to the main loop frequency which significantly reduces the chance of missed presses with long main loop durations.
 
 There are 6 Asynchronous events (actioned immediately via intterrupt) , 4 Synchronous events (actioned at main loop) and a menu/paging structure which is only limited to your memory on chip (which is huge for the ESP32).  This means you could attach 10 different functions to a single button per menu level / page (if you dare!)
+
+You may use the library by employing Asynchromous events (actioned immediately, analygous to automatic mode), synchronous events (excecuted via library call in main loop, analygous to semi-automatic mode), or at the lowest level, simply polling a flag in the button object itself (analygous to manual mode)
 
 ## It allows for the following:
 
