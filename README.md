@@ -5,7 +5,7 @@ This makes employing extended button functions VERY. EASY. TO. DO.  Only the fir
 
 ```
   // Global variable
-  InterruptButton button1(BUTTON_1, LOW);
+  InterruptButton button1(32, LOW);                                              // Monitor pin 35, LOW when pressed
   
   // Setup Function
   button1.bind(InterruptButton::KeyPress, &menu0Button1keyPress);                // Bind a predefined function to the event
