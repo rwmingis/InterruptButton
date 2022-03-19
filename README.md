@@ -161,7 +161,7 @@ Menu 0, Button 2: SYNC AutoRepeat Press:       [67044 ms]
 ## Functional Flow Diagram ##
 The flow diagram below shows the basic function of the library.  It is pending an update to include some recent updates and additions such as 'autoRepeatPress'
 
-![This is an image](https://github.com/rwmingis/InterruptButton/blob/384a0dfd29cf697fb83aa25021e6ce360eaceb00/images/flowDiagram.png)
+![This is an image](images/flowDiagram.png)
 
 
 ## Roadmap Forward ##
