@@ -15,14 +15,10 @@ class InterruptButton {
       Pressing,
       Pressed, 
       WaitingForRelease,
-      Releasing,
-      DblClickIdle,
-      DblClickWaiting,
-      DblClickTimeout
+      Releasing
     };
 
     typedef void (*func_ptr)(void);       // Type def to faciliate managine pointers to external action functions
-
 
     // Static class members shared by all instances of this object (common across all instances of the class)
     // ------------------------------------------------------------------------------------------------------
@@ -40,7 +36,10 @@ class InterruptButton {
 
     // Non-static instance specific member declarations
     // ------------------------------------------------
-    volatile pinState_t m_state, m_stateDblClick = DblClickIdle;            // Instance specific state machine variable (intialised when intialising button)
+    void initialise(void);                                                  // Setup interrupts and event-action array
+    bool m_thisButtonInitialised = false;                                   // Allows us to intialise when binding functions (ie detect if already done)
+    volatile pinState_t m_state;                                            // Instance specific state machine variable (intialised when intialising button)
+    volatile bool m_wtgForDblClick = false;
     esp_timer_handle_t m_buttonPollTimer;                                   // Instance specific timer for button debouncing
     esp_timer_handle_t m_buttonLPandRepeatTimer;                            // Instance specific timer for button longPress and autoRepeat timing
     esp_timer_handle_t m_buttonDoubleClickTimer;                            // Instance specific timer for policing double-clicks
@@ -86,28 +85,14 @@ class InterruptButton {
     static uint8_t getMenuLevel();                                    // Retrieves menu level
 
 
-
     // Non-static instance specific member declarations ----------------------------------
     InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t pinMode = GPIO_MODE_INPUT,     // Class Constructor
                     uint16_t longKeyPressMS = 750, uint16_t autoRepeatMS = 250,
                     uint16_t doubleClickMS = 200, uint32_t debounceUS = 8000);
     ~InterruptButton();                                               // Class Destructor
-    void begin();                                                     // Instance initialiser
     void enableEvent(event_t event);
     void disableEvent(event_t event);
     bool eventEnabled(event_t event);
-
-
-
-
-
-
-
-
-
-
-    //bool syncEventsEnabled = true,  asyncEventsEnabled = true;
-    //bool longPressEnabled = false,  autoRepeatEnabled = false,  doubleClickEnabled = false;
 
     void      setLongPressInterval(uint16_t intervalMS);              // Updates LongPress Interval
     uint16_t  getLongPressInterval(void);
@@ -118,8 +103,8 @@ class InterruptButton {
 
 
     // Routines to manage interface with external action functions associated with each event ---
-    // Any functions bound to Asynchronous (ISR driven) events should be defined with IRAM_ATTR attribute and be as brief as possible
-    // Any functions bound to Synchronous events (Actioned by loop call of "button.processSyncEvents()") may be longer and also may be defined as Lambda functions
+    //   Any functions bound to Asynchronous (ISR driven) events should be defined with IRAM_ATTR attribute and be as brief as possible
+    //   Any functions bound to Synchronous events (Actioned by loop call of "button.processSyncEvents()") may be longer and also may be defined as Lambda functions
 
     void bind(  event_t event, func_ptr action);                      // Used to bind/unbind action to an event at current m_menuLevel
     void unbind(event_t event);
