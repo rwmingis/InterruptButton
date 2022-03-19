@@ -14,6 +14,8 @@ static const char* TAG = "IBTN";    // IDF log tag
   Need to confirm if any ISR's need to blocked/disabled from other ISR entry, ie portMUX highlevel/lowlevel, etc.
   Confirm all necessary varibables are volatile (noting timers throw an error when defined as volatile)
 
+IF second press of a doubleclick is held down, it won't longpress or autorepeat presss.
+
 Consider Adding button modes such as momentary, latching, etc.
 Consider a static member queue common across all instances to maintain order of all sync events across all buttons (and simplify processing the event actions in the main loop)
 Consider an RTOS queue.
@@ -61,13 +63,11 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "CP2_");  // Keep sampling pin state
         return;
       }
-    // Planned spill through here if logic requires, ie keyDown confirmed.
+    // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
     case Pressing:                                                            // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
       btn->action(KeyDown);                                                   // Fire the asynchronous keyDown event
-      if(btn->m_stateDblClick == DblClickIdle){                               // If not waiting for a double click or timing out, Commence longKeyPress / Autopress timers
-        btn->m_longKeyPressMenuLevel = m_menuLevel;                           // (will be cancelled if released before timer expires)
-        startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_longKeyPressMS * 1000), &longPressEvent, btn, "CP1_");
-      }
+      btn->m_longKeyPressMenuLevel = m_menuLevel;                           // (will be cancelled if released before timer expires)
+      startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_longKeyPressMS * 1000), &longPressEvent, btn, "CP1_");
       btn->m_state = Pressed;
       gpio_intr_enable(btn->m_pin);                                           // Begin monitoring pin again
       break;
@@ -96,7 +96,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         }
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "W4R_invalidPoll"); // Keep sampling pin state until released
       }
-    // Intended spill through here to "Releasing" once keyUp confirmed.
+    // Intended spill through here (no break) to "Releasing" once keyUp confirmed.
 
     case Releasing:
       killTimer(btn->m_buttonLPandRepeatTimer);
@@ -105,19 +105,19 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
       if((btn->eventEnabled(DoubleClick) && btn->eventEnabled(AsyncEvents) && btn->eventActions[m_menuLevel][DoubleClick] != nullptr) ||
          (btn->eventEnabled(SyncDoubleClick) && btn->eventEnabled(SyncEvents) && btn->eventActions[m_menuLevel][SyncDoubleClick] != nullptr)) {
 
-        if(btn->m_stateDblClick == DblClickIdle && !btn->m_longPress_preventKeyPress) {   // Commence detection process
-          btn->m_stateDblClick = DblClickWaiting;
-          btn->m_keyPressMenuLevel = m_menuLevel;                                         // Save menuLevel in case this is converted to a keyPress later
-          startTimer(btn->m_buttonDoubleClickTimer, uint64_t(btn->m_doubleClickMS * 1000), &doubleClickTimeout, btn, "W4R_DCsetup_");
-
-        } else if (btn->m_stateDblClick == DblClickWaiting) {                             // VALID DOUBLE-CLICK (second keyup without a timeout)
-          killTimer(btn->m_buttonDoubleClickTimer);
-          btn->m_stateDblClick = DblClickIdle;
+        if(btn->m_wtgForDblClick) {                     // VALID DOUBLE-CLICK (second keyup without a timeout, would normally check esp_timer_is_active,
+          killTimer(btn->m_buttonDoubleClickTimer);     // but function not available in esp32 arduino core.
+          btn->m_wtgForDblClick = false;
           btn->m_doubleClickMenuLevel = m_menuLevel;
           btn->action(DoubleClick); btn->doubleClickOccurred = true;
+
+        } else if (!btn->m_longPress_preventKeyPress) {                                   // Commence double-click detection process               
+          btn->m_wtgForDblClick = true;
+          btn->m_doubleClickMenuLevel = m_menuLevel;                                      // Save menuLevel in case this is converted to a keyPress later
+          startTimer(btn->m_buttonDoubleClickTimer, uint64_t(btn->m_doubleClickMS * 1000), &doubleClickTimeout, btn, "W4R_DCsetup_");
         }
       } else if(!btn->m_longPress_preventKeyPress) {                                      // Otherwise, treat as a basic keyPress
-        btn->action(KeyPress);                                   // Then treat as a normal keyPress
+        btn->action(KeyPress);                                                            // Then treat as a normal keyPress
         btn->keyPressOccurred = true; btn->m_keyPressMenuLevel = m_menuLevel;
       } 
       btn->m_state = Released;
@@ -160,9 +160,9 @@ void IRAM_ATTR InterruptButton::autoRepeatPressEvent(void *arg){
 //-- Method to return to interpret previous keyUp as a keyPress instead of a doubleClick if it times out.
 void IRAM_ATTR InterruptButton::doubleClickTimeout(void *arg){
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
-  btn->action(KeyPress);                                                  // Then treat as a normal keyPress
-  btn->keyPressOccurred = true; btn->m_keyPressMenuLevel = m_menuLevel;   // Note, this timer is never started if previous press was a longpress
-  btn->m_stateDblClick = DblClickIdle;
+  btn->action(KeyPress);                                                                  // Then treat as a normal keyPress
+  btn->keyPressOccurred = true; btn->m_keyPressMenuLevel = btn->m_doubleClickMenuLevel;   // Note, this timer is never started if previous press was a longpress
+  btn->m_wtgForDblClick = false;
 }
 
 //-- Helper method to simplify starting a timer ----------------------------------------------------------
@@ -227,7 +227,7 @@ InterruptButton::~InterruptButton() {
 }
 
 // Initialiser -------------------------------------------------------------------
-void InterruptButton::begin(void){
+void InterruptButton::initialise(void){
     if(!m_firstButtonInitialised) m_firstButtonInitialised = true;
 
     eventActions = new func_ptr*[m_numMenus];
@@ -278,6 +278,10 @@ void InterruptButton::bind(event_t event, uint8_t menuLevel, func_ptr action){
   } else if(event >= NumEventTypes) {
     ESP_LOGE(TAG, "Specified event is invalid!");
   } else {
+    if(!m_thisButtonInitialised) {
+      initialise();
+      m_thisButtonInitialised = true;      
+    }
     eventActions[menuLevel][event] = action;
     if(!eventEnabled(event)) enableEvent(event);
   }
