@@ -228,7 +228,9 @@ InterruptButton::~InterruptButton() {
 
 // Initialiser -------------------------------------------------------------------
 void InterruptButton::initialise(void){
+    m_thisButtonInitialised = true;    
     if(!m_firstButtonInitialised) m_firstButtonInitialised = true;
+      
 
     eventActions = new func_ptr*[m_numMenus];
     for(int menu = 0; menu < m_numMenus; menu++){
@@ -271,17 +273,13 @@ void InterruptButton::bind(event_t event, func_ptr action){
   bind(event, m_menuLevel, action);
 }
 void InterruptButton::bind(event_t event, uint8_t menuLevel, func_ptr action){
-  if(!m_firstButtonInitialised){
-    ESP_LOGE(TAG, "You must call the 'begin()' function prior to binding external fuctions to a button!");
-  } else if(menuLevel >= m_numMenus) {
+  if(menuLevel >= m_numMenus) {
     ESP_LOGE(TAG, "Specified menu level is greater than the number of menus!");
   } else if(event >= NumEventTypes) {
     ESP_LOGE(TAG, "Specified event is invalid!");
   } else {
-    if(!m_thisButtonInitialised) {
-      initialise();
-      m_thisButtonInitialised = true;      
-    }
+    if(!m_thisButtonInitialised) initialise(); 
+    
     eventActions[menuLevel][event] = action;
     if(!eventEnabled(event)) enableEvent(event);
   }
@@ -292,7 +290,7 @@ void InterruptButton::unbind(event_t event){
 }
 void InterruptButton::unbind(event_t event, uint8_t menuLevel){
   if(!m_firstButtonInitialised){
-    ESP_LOGE(TAG, "You must call the 'begin()' function prior to unbinding external fuctions from a button!");
+    ESP_LOGE(TAG, "You must have bound at least one function prior to unbinding it from a button!");
   } else if(menuLevel >= m_numMenus) {
     ESP_LOGE(TAG, "Specified menu level is greater than the number of menus!");
   } else if(event >= NumEventTypes) {
