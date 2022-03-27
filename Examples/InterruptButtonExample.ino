@@ -13,26 +13,12 @@ void menu0Button1longKeyPress(void);
 void menu0Button1autoRepeatPress(void); 
 void menu0Button1doubleClick(void); 
 
-void menu0Button2keyDown(void);
-void menu0Button2keyUp(void);
-void menu0Button2keyPress(void);                 
-void menu0Button2longKeyPress(void); 
-void menu0Button2autoRepeatPress(void); 
-void menu0Button2doubleClick(void); 
-
 void menu1Button1keyDown(void);
 void menu1Button1keyUp(void);
 void menu1Button1keyPress(void);                 
 void menu1Button1longKeyPress(void); 
 void menu1Button1autoRepeatPress(void); 
 void menu1Button1doubleClick(void); 
-
-void menu1Button2keyDown(void);
-void menu1Button2keyUp(void);
-void menu1Button2keyPress(void);                 
-void menu1Button2longKeyPress(void); 
-void menu1Button2autoRepeatPress(void); 
-void menu1Button2doubleClick(void); 
 
 
 //-- BUTTON VARIABLES -----------------------------------------
@@ -50,134 +36,107 @@ void setup() {
   uint8_t numMenus = 2; 
   InterruptButton::setMenuCount(numMenus);
   InterruptButton::setMenuLevel(0);
-  button1.begin(); button2.begin();
 
   // -- Menu/UI Page 0 Functions --------------------------------------------------
   // ------------------------------------------------------------------------------
 
-  // Asynchronous, fires as an interrupt so should be IRAM_ATTR and be FAST!
-  button1.bind(InterruptButton::KeyDown,          0, &menu0Button1keyDown);
-  button1.bind(InterruptButton::KeyUp,            0, &menu0Button1keyUp);
-  button1.bind(InterruptButton::KeyPress,         0, &menu0Button1keyPress);
-  button1.bind(InterruptButton::LongKeyPress,     0, &menu0Button1longKeyPress);
-  button1.bind(InterruptButton::AutoRepeatPress,  0, &menu0Button1autoRepeatPress);
-  button1.bind(InterruptButton::DoubleClick,      0, &menu0Button1doubleClick);
-  // Synchronous, so fires when triggered in main loop, can be Lamda
-  button1.bind(InterruptButton::SyncKeyPress,     0, [](){ Serial.printf("Menu 0, Button 1: SYNC KeyPress:              [%lu ms]\n", millis()); });  
-  button1.bind(InterruptButton::SyncLongKeyPress, 0, [](){ Serial.printf("Menu 0, Button 1: SYNC LongKeyPress:          [%lu ms]\n", millis()); });  
-  button1.bind(InterruptButton::SyncAutoKeyPress, 0, [](){ Serial.printf("Menu 0, Button 1: SYNC AutoRepeat Press:      [%lu ms]\n", millis()); });  
-  button1.bind(InterruptButton::SyncDoubleClick,  0, [](){ Serial.printf("Menu 0, Button 1: SYNC DoubleClick:           [%lu ms]\n", millis()); });  
+  button1.bind(Event_KeyDown,          0, &menu0Button1keyDown);
+  button1.bind(Event_KeyUp,            0, &menu0Button1keyUp);
+  button1.bind(Event_KeyPress,         0, &menu0Button1keyPress);
+  button1.bind(Event_LongKeyPress,     0, &menu0Button1longKeyPress);
+  button1.bind(Event_AutoRepeatPress,  0, &menu0Button1autoRepeatPress);
+  button1.bind(Event_DoubleClick,      0, &menu0Button1doubleClick);
 
-  // Asynchronous, fires as an interrupt so should be IRAM_ATTR and be FAST!
-  button2.bind(InterruptButton::KeyDown,          0, &menu0Button2keyDown);
-  button2.bind(InterruptButton::KeyUp,            0, &menu0Button2keyUp);
-  button2.bind(InterruptButton::KeyPress,         0, &menu0Button2keyPress);
-  button2.bind(InterruptButton::LongKeyPress,     0, &menu0Button2longKeyPress);
-  button2.bind(InterruptButton::AutoRepeatPress,  0, &menu0Button2autoRepeatPress);
-  button2.bind(InterruptButton::DoubleClick,      0, &menu0Button2doubleClick);
-  // Synchronous, so fires when triggered in main loop, can be Lamda
-  button2.bind(InterruptButton::SyncKeyPress,     0, [](){ Serial.printf("Menu 0, Button 2: SYNC KeyPress:              [%lu ms]\n", millis()); });  
-  button2.bind(InterruptButton::SyncLongKeyPress, 0, [](){ Serial.printf("Menu 0, Button 2: SYNC LongKeyPress:          [%lu ms]\n", millis()); });  
-  button2.bind(InterruptButton::SyncAutoKeyPress, 0, [](){ Serial.printf("Menu 0, Button 2: SYNC AutoRepeat Press:      [%lu ms]\n", millis()); });  
-  button2.bind(InterruptButton::SyncDoubleClick,  0, [](){ Serial.printf("Menu 0, Button 2: SYNC DoubleClick:           [%lu ms]\n", millis()); });  
+  // Button 2 actions are defined as LAMDA functions which have no name (for exaample purposes)
+  button2.bind(Event_KeyDown,          0, [](){ Serial.printf("Menu 0, Button 2: Key Down:              %lu ms\n", millis()); });  
+  button2.bind(Event_KeyUp,            0, [](){ Serial.printf("Menu 0, Button 2: Key Up  :              %lu ms\n", millis()); });
+  button2.bind(Event_KeyPress,         0, [](){ Serial.printf("Menu 0, Button 2: Key Press:             %lu ms\n", millis()); });
+  
+  button2.bind(Event_LongKeyPress,     0, [](){ 
+    Serial.printf("Menu 0, Button 2: Long Press:            %lu ms - Disabling doubleclicks and switing to menu level ", millis());
+    button2.disableEvent(Event_DoubleClick);
+    InterruptButton::setMenuLevel(1);
+    Serial.println(InterruptButton::getMenuLevel());
+  });
 
+  button2.bind(Event_AutoRepeatPress,  0, [](){ Serial.printf("Menu 0, Button 2: Auto Repeat Key Press: %lu ms\n", millis()); });
+  button2.bind(Event_DoubleClick,      0, [](){ Serial.printf("Menu 0, Button 2: Double Click:          %lu ms - Changing to Menu Level ", millis());
+    InterruptButton::setMenuLevel(1);
+    Serial.println(InterruptButton::getMenuLevel()); 
+  });
 
   // -- Menu/UI Page 1 Functions --------------------------------------------------
   // ------------------------------------------------------------------------------
 
-  // Asynchronous, fires as an interrupt so should be IRAM_ATTR and be FAST!
-  button1.bind(InterruptButton::KeyDown,          1, &menu1Button1keyDown);
-  button1.bind(InterruptButton::KeyUp,            1, &menu1Button1keyUp);
-  button1.bind(InterruptButton::KeyPress,         1, &menu1Button1keyPress);
-  button1.bind(InterruptButton::LongKeyPress,     1, &menu1Button1longKeyPress);
-  button1.bind(InterruptButton::AutoRepeatPress,  1, &menu1Button1autoRepeatPress);
-  button1.bind(InterruptButton::DoubleClick,      1, &menu1Button1doubleClick);
-  // Synchronous, so fires when triggered in main loop, can be Lamda
-  button1.bind(InterruptButton::SyncKeyPress,     1, [](){ Serial.printf("Menu 1, Button 1: SYNC KeyPress:              [%lu ms]\n", millis()); });  
-  button1.bind(InterruptButton::SyncLongKeyPress, 1, [](){ Serial.printf("Menu 1, Button 1: SYNC LongKeyPress:          [%lu ms]\n", millis()); });  
-  button1.bind(InterruptButton::SyncAutoKeyPress, 1, [](){ Serial.printf("Menu 1, Button 1: SYNC AutoRepeat Press:      [%lu ms]\n", millis()); });  
-  button1.bind(InterruptButton::SyncDoubleClick,  1, [](){ Serial.printf("Menu 1, Button 1: SYNC DoubleClick:           [%lu ms]\n", millis()); });  
+  button1.bind(Event_KeyDown,          1, &menu1Button1keyDown);
+  button1.bind(Event_KeyUp,            1, &menu1Button1keyUp);
+  button1.bind(Event_KeyPress,         1, &menu1Button1keyPress);
+  button1.bind(Event_LongKeyPress,     1, &menu1Button1longKeyPress);
+  button1.bind(Event_AutoRepeatPress,  1, &menu1Button1autoRepeatPress);
+  button1.bind(Event_DoubleClick,      1, &menu1Button1doubleClick);
 
-  // Asynchronous, fires as an interrupt so should be IRAM_ATTR and be FAST!
-  button2.bind(InterruptButton::KeyDown,          1, &menu1Button2keyDown);
-  button2.bind(InterruptButton::KeyUp,            1, &menu1Button2keyUp);
-  button2.bind(InterruptButton::KeyPress,         1, &menu1Button2keyPress);
-  button2.bind(InterruptButton::LongKeyPress,     1, &menu1Button2longKeyPress);
-  button2.bind(InterruptButton::AutoRepeatPress,  1, &menu1Button2autoRepeatPress);
-  //button2.bind(InterruptButton::DoubleClick,      1, &menu1Button2doubleClick);
-  // Synchronous, so fires when triggered in main loop, can be Lamda
-  button2.bind(InterruptButton::SyncKeyPress,     1, [](){ Serial.printf("Menu 1, Button 2: SYNC KeyPress:              [%lu ms]\n", millis()); });  
-  button2.bind(InterruptButton::SyncLongKeyPress, 1, [](){ Serial.printf("Menu 1, Button 2: SYNC LongKeyPress:          [%lu ms]\n", millis()); });  
-  button2.bind(InterruptButton::SyncAutoKeyPress, 1, [](){ Serial.printf("Menu 1, Button 2: SYNC AutoRepeat Press :     [%lu ms]\n", millis()); });  
-  //button2.bind(InterruptButton::SyncDoubleClick,  1, [](){ Serial.printf("Menu 1, Button 2: SYNC DoubleClick:           [%lu ms]\n", millis()); });  
+  // Button 2 actions are defined as LAMDA functions which have no name (for exaample purposes)
+  button2.bind(Event_KeyDown,          1, [](){ Serial.printf("Menu 1, Button 2: Key Down:              %lu ms\n", millis()); });  
+  button2.bind(Event_KeyUp,            1, [](){ Serial.printf("Menu 1, Button 2: Key Up  :              %lu ms\n", millis()); });
+  button2.bind(Event_KeyPress,         1, [](){ Serial.printf("Menu 1, Button 2: Key Press:             %lu ms\n", millis()); });
+  
+  button2.bind(Event_LongKeyPress,     1, [](){ 
+    Serial.printf("Menu 1, Button 2: Long Press:            %lu ms - [Re-enabling doubleclick - NOTE FASTER KEYPRESS RESPONSE SINCE DOUBLECLICK WAS DISABLED] Changing back to Menu Level ", millis());
+    button2.enableEvent(Event_DoubleClick);
+    InterruptButton::setMenuLevel(0);
+    Serial.println(InterruptButton::getMenuLevel());
+  });
 
-  //Clear any spurious clicks made during setup so we start fresh in the main loop.
-  button1.clearSyncInputs(); button2.clearSyncInputs();
+  button2.bind(Event_AutoRepeatPress,  1, [](){ Serial.printf("Menu 1, Button 2: Auto Repeat Key Press: %lu ms\n", millis()); });
+  
+  button2.bind(Event_DoubleClick,      1, [](){  
+    Serial.print("Menu 1, Button 2: Double Click - Changing Back to Menu Level ");
+    button2.disableEvent(Event_DoubleClick);
+    InterruptButton::setMenuLevel(0);
+    Serial.println(InterruptButton::getMenuLevel());
+  });
+
   InterruptButton::setMenuLevel(0); 
+  //InterruptButton::setMode(Sync);
 }
 
-//== INTERRUPT SERVICE ROUTINES ====================================================================
+//== FUNCTIONS/PROCEDURES TO BIND/ATTACH TO BUTTON EVENTS ==========================================
 //==================================================================================================
-// Button1 ISR's (Top left).
-void IRAM_ATTR menu0Button1keyDown(void)         { Serial.printf("Menu 0, Button 1: ASYNC Key Down:              %lu ms\n", millis()); }
-void IRAM_ATTR menu0Button1keyUp(void)           { Serial.printf("Menu 0, Button 1: ASYNC Key Up:                %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button1keyPress(void)        { Serial.printf("Menu 0, Button 1: ASYNC Key Press:             %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button1longKeyPress(void)    { Serial.printf("Menu 0, Button 1: ASYNC Long Key Press:        %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button1autoRepeatPress(void) { Serial.printf("Menu 0, Button 1: ASYNC Auto Repeat Key Press: %lu ms\n", millis()); }     
+
+// MENU 0 -----
+void IRAM_ATTR menu0Button1keyDown(void)         { Serial.printf("Menu 0, Button 1: Key Down:              %lu ms\n", millis()); }
+void IRAM_ATTR menu0Button1keyUp(void)           { Serial.printf("Menu 0, Button 1: Key Up:                %lu ms\n", millis()); }     
+void IRAM_ATTR menu0Button1keyPress(void)        { Serial.printf("Menu 0, Button 1: Key Press:             %lu ms\n", millis()); }     
+void IRAM_ATTR menu0Button1longKeyPress(void)    { Serial.printf("Menu 0, Button 1: Long Key Press:        %lu ms\n", millis()); }     
+void IRAM_ATTR menu0Button1autoRepeatPress(void) { Serial.printf("Menu 0, Button 1: Auto Repeat Key Press: %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button1doubleClick(void)  {
-  Serial.printf("Menu 0, Button 1: ASYNC Double Click:          %lu ms - Disabling Sync events and changing to Menu Level ", millis());
-  button1.disableEvent(InterruptButton::SyncEvents); button2.disableEvent(InterruptButton::SyncEvents); 
+  Serial.printf("Menu 0, Button 1: Double Click:          %lu ms - Changing to SYNCHRONOUS Mode and to Menu level ", millis());
+  InterruptButton::setMode(Mode_Synchronous);
   InterruptButton::setMenuLevel(1);
   Serial.println(InterruptButton::getMenuLevel());
 } 
 
-void IRAM_ATTR menu1Button1keyDown(void)         { Serial.printf("Menu 1, Button 1: ASYNC Key Down:              %lu ms\n", millis()); }     
-void IRAM_ATTR menu1Button1keyUp(void)           { Serial.printf("Menu 1, Button 1: ASYNC Key Up:                %lu ms\n", millis()); }      
-void IRAM_ATTR menu1Button1keyPress(void)        { Serial.printf("Menu 1, Button 1: ASYNC Key Press:             %lu ms\n", millis()); }     
-void IRAM_ATTR menu1Button1longKeyPress(void)    { Serial.printf("Menu 1, Button 1: ASYNC Long Key Press:        %lu ms\n", millis()); }     
-void IRAM_ATTR menu1Button1autoRepeatPress(void) { Serial.printf("Menu 1, Button 1: ASYNC Auto Repeat Key Press: %lu ms\n", millis()); }     
+// MENU 1 -----
+void IRAM_ATTR menu1Button1keyDown(void)         { Serial.printf("Menu 1, Button 1: Key Down:              %lu ms\n", millis()); }     
+void IRAM_ATTR menu1Button1keyUp(void)           { Serial.printf("Menu 1, Button 1: Key Up:                %lu ms\n", millis()); }      
+void IRAM_ATTR menu1Button1keyPress(void)        { Serial.printf("Menu 1, Button 1: Key Press:             %lu ms\n", millis()); }     
+void IRAM_ATTR menu1Button1longKeyPress(void)    { Serial.printf("Menu 1, Button 1: Long Key Press:        %lu ms\n", millis()); }     
+void IRAM_ATTR menu1Button1autoRepeatPress(void) { Serial.printf("Menu 1, Button 1: Auto Repeat Key Press: %lu ms\n", millis()); }     
 void IRAM_ATTR menu1Button1doubleClick(void)  { 
-  Serial.printf("Menu 1, Button 1: ASYNC Double Click:          %lu ms - Changing Back to Menu Level ", millis());
+  Serial.printf("Menu 1, Button 1: Double Click:          %lu ms - Changing to ASYNCHRONOUS mode and to menu level ", millis());
+  InterruptButton::setMode(Mode_Asynchronous);
   InterruptButton::setMenuLevel(0);
   Serial.println(InterruptButton::getMenuLevel());
 } 
 
-// Button2 ISR's (Bottom Left).
-void IRAM_ATTR menu0Button2keyDown(void)         { Serial.printf("Menu 0, Button 2: ASYNC Key Down:              %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button2keyUp(void)           { Serial.printf("Menu 0, Button 2: ASYNC Key Up:                %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button2keyPress(void)        { Serial.printf("Menu 0, Button 2: ASYNC Key Press:             %lu ms\n", millis()); }         
-void IRAM_ATTR menu0Button2longKeyPress(void)    { Serial.printf("Menu 0, Button 2: ASYNC Long Key Press:        %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button2autoRepeatPress(void) { Serial.printf("Menu 0, Button 2: ASYNC Auto Repeat Key Press: %lu ms\n", millis()); }     
-void IRAM_ATTR menu0Button2doubleClick(void)  { 
-  Serial.printf("Menu 0, Button 2: ASYNC Double Click:          %lu ms - Enabling Sync events and changing to Menu Level ", millis());
-  button1.enableEvent(InterruptButton::SyncEvents); button2.enableEvent(InterruptButton::SyncEvents); 
-  InterruptButton::setMenuLevel(1);
-  Serial.println(InterruptButton::getMenuLevel());
-} 
-
-void IRAM_ATTR menu1Button2keyDown(void)         { Serial.printf("Menu 1, Button 2: ASYNC Key Down:              %lu ms\n", millis()); }     
-void IRAM_ATTR menu1Button2keyUp(void)           { Serial.printf("Menu 1, Button 2: ASYNC Key Up:                %lu ms\n", millis()); }     
-void IRAM_ATTR menu1Button2keyPress(void)        { Serial.printf("Menu 1, Button 2: ASYNC Key Press:             %lu ms\n", millis()); }            
-void IRAM_ATTR menu1Button2longKeyPress(void) { 
-  Serial.printf("Menu 1, Button 2: ASYNC Long Press:            %lu ms - [NOTE FASTER KEYPRESS RESPONSE IF DOUBLECLICK NOT DEFINED] Changing Back to Menu Level ", millis());
-  InterruptButton::setMenuLevel(0);
-  Serial.println(InterruptButton::getMenuLevel());
- }
-void IRAM_ATTR menu1Button2autoRepeatPress(void) { Serial.printf("Menu 1, Button 2: ASYNC Auto Repeat Key Press: %lu ms\n", millis()); }     
-void IRAM_ATTR menu1Button2doubleClick(void) { 
-  Serial.print("Menu 1, Button 2: ASYNC Double Click - Changing Back to Menu Level ");
-  InterruptButton::setMenuLevel(0);
-  Serial.println(InterruptButton::getMenuLevel());
-}
 
 //== MAIN LOOP FUNCTION =====================================================================================
 //===========================================================================================================
 
 void loop() { 
-  // ACTION ANY SYNCHRONOUS BUTTON EVENTS NOT DONE ASYNCHRONOUSLY IN ISR
-  button1.processSyncEvents(); button2.processSyncEvents();
+  InterruptButton::processSyncEvents();
 
   // Normally main program will run here and cause various inconsistant loop timing in syncronous events.
 
-  delay(1000);
+  delay(2000);
 }
