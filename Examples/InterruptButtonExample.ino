@@ -110,10 +110,21 @@ void IRAM_ATTR menu0Button1keyPress(void)        { Serial.printf("Menu 0, Button
 void IRAM_ATTR menu0Button1longKeyPress(void)    { Serial.printf("Menu 0, Button 1: Long Key Press:        %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button1autoRepeatPress(void) { Serial.printf("Menu 0, Button 1: Auto Repeat Key Press: %lu ms\n", millis()); }     
 void IRAM_ATTR menu0Button1doubleClick(void)  {
-  Serial.printf("Menu 0, Button 1: Double Click:          %lu ms - Changing to SYNCHRONOUS Mode and to Menu level ", millis());
-  InterruptButton::setMode(Mode_Synchronous);
-  InterruptButton::setMenuLevel(1);
-  Serial.println(InterruptButton::getMenuLevel());
+  Serial.printf("Menu 0, Button 1: Double Click:          %lu ms - ", millis());
+  switch(InterruptButton::getMode()){
+    case Mode_Asynchronous:
+    InterruptButton::setMode(Mode_Hybrid);
+    Serial.println("Changing to HYBRID mode.");
+  break;
+    case Mode_Hybrid:
+    InterruptButton::setMode(Mode_Synchronous);
+    Serial.println("Changing to SYNCHRONOUS mode.");
+  break;
+    case Mode_Synchronous:
+    InterruptButton::setMode(Mode_Asynchronous);     
+    Serial.println("Changing to ASYNCHRONOUS mode.");
+  break;
+  }
 } 
 
 // MENU 1 -----
