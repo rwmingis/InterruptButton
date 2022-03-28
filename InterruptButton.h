@@ -4,7 +4,6 @@
 // Added mode selection to change how events are actioned (but no change in detections)
 // All external functions are executed outside of ISR and in RTOS scope, so no need for IRAM
 
-
 #ifndef InterruptButton_h
 #define InterruptButton_h
 
@@ -14,14 +13,15 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 
-#define ASYNC_EVENT_QUEUE_DEPTH 5
-#define SYNC_EVENT_QUEUE_DEPTH (ASYNC_EVENT_QUEUE_DEPTH * 2)
+#define ASYNC_EVENT_QUEUE_DEPTH   5
+#define SYNC_EVENT_QUEUE_DEPTH    10
 
-typedef void (*func_ptr_t)(void);    // Type def to faciliate managine pointers to external action functions
+typedef void (*func_ptr_t)(void);    // Type def to faciliate manage pointers to external action functions
 
 enum modes {
-  Mode_Synchronous,
-  Mode_Asynchronous
+  Mode_Asynchronous,                   // All actions performed via Asynchronous RTOS queue
+  Mode_Hybrid,                        // keyUp and keyDown performed by RTOS queue, remaining actions by Static Synchronous Queue.
+  Mode_Synchronous                    // All actions performed by Static Synchronous Queue.
 };
 
 enum events:uint8_t {
@@ -40,7 +40,7 @@ enum events:uint8_t {
 // -- ----------------------------------------------------------------------------------------------------------------------
 class InterruptButton {
   private:
-    enum pinStates {                // Enumeration to assist with program flow at state machine for reading button
+    enum buttonStates {                // Enumeration to assist with program flow at state machine for reading button
       Released, 
       ConfirmingPress,
       Pressing,
@@ -51,7 +51,6 @@ class InterruptButton {
 
     // Static class members shared by all instances of this object (common across all instances of the class)
     // ------------------------------------------------------------------------------------------------------
-    static bool initialiseClass(void);                                      // One time intialiser for entire Class, not each instance (called during first bind)
     static void readButton(void* arg);                                      // Static function to read button state (must be static to bind to GPIO and timer ISR)
     static void longPressEvent(void *arg);                                  // Wrapper / callback to excecute a longPress event
     static void autoRepeatPressEvent(void *arg);                            // Wrapper / callback to excecute a autoRepeatPress event
@@ -62,6 +61,9 @@ class InterruptButton {
 
     static const uint8_t m_targetPolls = 10;                                // Desired number of polls required to debounce a button
     static bool m_classInitialised;
+    
+    static QueueHandle_t asyncEventQueue;
+    static TaskHandle_t queueServicerHandle;
     static func_ptr_t syncEventQueue[];
     static bool m_firstButtonInitialised;                                   // Used to block any further changes to m_numMenus
     static uint8_t m_numMenus;                                              // Total number of menu sets, can be set by user, but only before initialising first button
@@ -72,7 +74,7 @@ class InterruptButton {
     // ------------------------------------------------
     void initialiseInstance(void);                                          // Setup interrupts and event-action array
     bool m_thisButtonInitialised = false;                                   // Allows us to intialise when binding functions (ie detect if already done)
-    volatile pinStates m_state;                                            // Instance specific state machine variable (intialised when intialising button)
+    volatile buttonStates m_state;                                            // Instance specific state machine variable (intialised when intialising button)
     volatile bool m_wtgForDblClick = false;
     esp_timer_handle_t m_buttonPollTimer;                                   // Instance specific timer for button debouncing
     esp_timer_handle_t m_buttonLPandRepeatTimer;                            // Instance specific timer for button longPress and autoRepeat timing
@@ -97,8 +99,10 @@ class InterruptButton {
   public:
 
     // Static class members shared by all instances of this object -----------------------
-    static bool setMode(modes mode);                                  // Toggle between Synchronous (Static Queue) or Asynchronous modes (RTOS Queue)
-    static void processSyncEvents(void);                              // Process Sync Events, called from main looop
+    static bool    setMode(modes mode);                               // Toggle between Synchronous (Static Queue), Hybrid, or Asynchronous modes (RTOS Queue)
+    static modes   getMode(void);
+    static void    queueServicer(void* pvParams);
+    static void    processSyncEvents(void);                           // Process Sync Events, called from main looop
     static void    setMenuCount(uint8_t numberOfMenus);               // Sets number of menus/pages that each button has (can only be done before intialising first button)
     static uint8_t getMenuCount(void);                                // Retrieves total number of menus.
     static void    setMenuLevel(uint8_t level);                       // Sets menu level across all buttons (ie buttons mean something different each page)
