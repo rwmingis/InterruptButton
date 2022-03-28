@@ -15,24 +15,10 @@
 static const char* TAG = "IBTN";            // IDF log tag
 
 
-QueueHandle_t   asyncEventQueue = nullptr;
-TaskHandle_t    queueCrucherHandle = nullptr;
 
 
-QueueHandle_t* getAsyncEventQueue(){
 
-}
 
-void queueCruncher(void* pvParams){
-  func_ptr_t theAction = nullptr;
-  for (;;){
-    if (xQueueReceive(asyncEventQueue, (void*)&theAction, (portTickType)portMAX_DELAY)) {  // execute callback if btntrigger_t matches the one provided via Q
-      if(theAction != nullptr) theAction();
-      // if we ever break, this loop is deleted.
-    }
-  }
-  vTaskDelete(NULL);
-}
 
 /* ToDo
   Need to confirm if any ISR's need to blocked/disabled from other ISR entry, ie portMUX highlevel/lowlevel, etc.
@@ -57,44 +43,68 @@ considered vortigont's note on thread safety:
 //--------------------------------------------------------------------------------------------------------
 
 //-- Initialise Static Member Variables ------------------------------------------------------------------
-uint8_t InterruptButton::m_numMenus                         { 0 };                  // 0 Means not initialised, can be set by user; once set it can't be changed.
-uint8_t InterruptButton::m_menuLevel                        { 0 };
-modes   InterruptButton::m_mode                             { Mode_Asynchronous };
-bool    InterruptButton::m_classInitialised                 { false };
-func_ptr_t InterruptButton::syncEventQueue[SYNC_EVENT_QUEUE_DEPTH] =   { nullptr };
-
-bool InterruptButton::initialiseClass(void){
-  esp_err_t err = gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
-  ESP_LOGD(TAG, "GPIO ISR service installed with exit status: %d", err);
-  if(err != ESP_OK && err != ESP_ERR_INVALID_STATE) return false;
-  if(m_numMenus == 0) m_numMenus = 1;      // Default to a single menu level if not set prior to initialising first button
-  m_classInitialised = setMode(m_mode);
-  return m_classInitialised;
-}
+uint8_t       InterruptButton::m_numMenus                               { 0 };                  // 0 Means not initialised, can be set by user; once set it can't be changed.
+uint8_t       InterruptButton::m_menuLevel                              { 0 };
+modes         InterruptButton::m_mode                                   { Mode_Asynchronous };
+bool          InterruptButton::m_classInitialised                       { false };
+func_ptr_t    InterruptButton::syncEventQueue[SYNC_EVENT_QUEUE_DEPTH] = { nullptr };
+QueueHandle_t InterruptButton::asyncEventQueue                          { nullptr };
+TaskHandle_t  InterruptButton::queueServicerHandle                      { nullptr };
 
 bool InterruptButton::setMode(modes mode){
-    if(mode == Mode_Asynchronous) {
-      if(asyncEventQueue == nullptr) asyncEventQueue = xQueueCreate( ASYNC_EVENT_QUEUE_DEPTH, sizeof(func_ptr_t) );
-        bool retval = (queueCrucherHandle != nullptr) ? true : xTaskCreate(queueCruncher, EVENT_TASK_NAME, EVENT_TASK_STACK, NULL, EVENT_TASK_PRIORITY, &queueCrucherHandle) == pdPASS;
-        if(retval && (asyncEventQueue != nullptr)){
-          m_mode = mode;
+  // Flush the Synchronous Static event queue
+  for(uint8_t i = 0; i < SYNC_EVENT_QUEUE_DEPTH; i++) syncEventQueue[i] = nullptr;
 
-          // Flush the Synchronous event queue
-          for(uint8_t i = 0; i < SYNC_EVENT_QUEUE_DEPTH; i++) {
-            if(syncEventQueue[i] != nullptr){
-              syncEventQueue[i] = nullptr;
-            } else {
-              break;
-            }
-          }
-          return true;
-        }
-    } else if(mode == Mode_Synchronous) {
-      m_mode = mode;
-      if(asyncEventQueue != nullptr) xQueueReset(asyncEventQueue);
-      return true;
+  // Flush the Asynchronous RTOS queue, if it exists
+  if(asyncEventQueue != nullptr) xQueueReset(asyncEventQueue);
+  
+  if(mode == Mode_Asynchronous || mode == Mode_Hybrid) {
+    m_mode = mode;
+    // create the RTOS queue
+    if(asyncEventQueue == nullptr) asyncEventQueue = xQueueCreate( ASYNC_EVENT_QUEUE_DEPTH, sizeof(func_ptr_t) );
+    if(asyncEventQueue == nullptr) {
+      ESP_LOGE(TAG, "setMode(): Failed to create RTOS queue!");
+      return false;
     }
+
+    // Start the RTOS queue action service/task
+    bool retVal;
+    if(queueServicerHandle != nullptr) {
+      vTaskResume(queueServicerHandle);   // Assuming it may have been paused earlier.
+      retVal = true;
+    } else {
+      retVal = xTaskCreate(queueServicer, EVENT_TASK_NAME, EVENT_TASK_STACK, NULL, EVENT_TASK_PRIORITY, &queueServicerHandle) == pdPASS;
+    }
+    if(!retVal) {
+      ESP_LOGE(TAG, "setMode(): Failed to create RTOS queue servicing task!");
+      return false;
+    }
+    return true;
+
+  } else if(mode == Mode_Synchronous) {
+    m_mode = mode;
+    if(queueServicerHandle != nullptr)  vTaskSuspend(queueServicerHandle);
+    return true;
+
+  } else {
+    ESP_LOGE(TAG, "setMode(): Invalid mode specified!");
     return false;
+  }
+}
+
+modes InterruptButton::getMode(){
+  return m_mode;
+}
+
+void InterruptButton::queueServicer(void* pvParams){
+  func_ptr_t theAction = nullptr;
+  for (;;){
+    if (xQueueReceive(asyncEventQueue, (void*)&theAction, (portTickType)portMAX_DELAY)) {  // execute callback if btntrigger_t matches the one provided via Q
+      if(theAction != nullptr) theAction();
+      // if we ever break, this loop is deleted.
+    }
+  }
+  vTaskDelete(NULL);
 }
 
 void InterruptButton::processSyncEvents() {
@@ -299,7 +309,13 @@ InterruptButton::~InterruptButton() {
 // Initialiser -------------------------------------------------------------------
 void InterruptButton::initialiseInstance(void){
     if(m_thisButtonInitialised) return;
-    if(!m_classInitialised) initialiseClass(); 
+
+    if(!m_classInitialised){                    // We must be initialising the first button
+      if(m_numMenus == 0) m_numMenus = 1;       // Default to a single menu level if not set prior to initialising first button
+      esp_err_t err = gpio_install_isr_service(ESP_INTR_FLAG_DEFAULT);
+      if(err != ESP_OK) ESP_LOGD(TAG, "GPIO ISR service installed with exit status: %d", err);
+      m_classInitialised = setMode(m_mode) && (err == ESP_OK || err == ESP_ERR_INVALID_STATE);
+    }
 
     eventActions = new func_ptr_t*[m_numMenus];
     for(int menu = 0; menu < m_numMenus; menu++){
@@ -314,10 +330,10 @@ void InterruptButton::initialiseInstance(void){
       gpio_conf.pull_down_en = (m_pressedState) ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE;
       gpio_conf.pull_up_en =   (m_pressedState) ? GPIO_PULLUP_DISABLE : GPIO_PULLUP_ENABLE;
       gpio_conf.intr_type = GPIO_INTR_ANYEDGE;
-    gpio_config(&gpio_conf);                                                  //configure GPIO with the given settings
+    gpio_config(&gpio_conf);                                                      // configure GPIO with the given settings
 
     gpio_isr_handler_add(m_pin, InterruptButton::readButton, (void*)this);
-    m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released;    // Set to current state when initialising
+    m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released;     // Set to current state when initialising
     m_thisButtonInitialised = true;
 }
 
@@ -354,7 +370,6 @@ void InterruptButton::unbind(events event, uint8_t menuLevel){
     ESP_LOGE(TAG, "Specified event is invalid!");
   } else {
     eventActions[menuLevel][event] = nullptr;
-    //if(eventEnabled(event)) disableEvent(event);
   }
   return;
 }
@@ -367,21 +382,20 @@ void InterruptButton::action(events event, uint8_t menuLevel, BaseType_t *pxHigh
   if(eventActions[menuLevel][event] == nullptr)                               return;   // Event is not defined
   if(event >= Event_KeyDown && event <= Event_DoubleClick && !eventEnabled(Event_All))    return;   // This is an async event and they are disabled
   
-  if(m_mode == Mode_Synchronous) {
+  if(m_mode == Mode_Asynchronous || (m_mode == Mode_Hybrid && (event == Event_KeyDown || event == Event_KeyUp))) {  // Call action using RTOS
+    if(pxHigherPriorityTaskWoken == nullptr){
+      xQueueSendToBack(asyncEventQueue, (void*)&eventActions[menuLevel][event], (TickType_t)0);
+    } else {
+      xQueueSendToBackFromISR(asyncEventQueue, (void*)&eventActions[menuLevel][event], pxHigherPriorityTaskWoken);  
+    }
+  } else {                                                                // Otherwise call action using Static Queue
     for(uint8_t i = 0; i < ASYNC_EVENT_QUEUE_DEPTH; i++){
       if(syncEventQueue[i] == nullptr){
         syncEventQueue[i] = eventActions[menuLevel][event];
         break;
       }
     }
-  } else {
-    if(pxHigherPriorityTaskWoken == nullptr){
-      xQueueSendToBack(asyncEventQueue, (void*)&eventActions[menuLevel][event], (TickType_t)0);
-    } else {
-      xQueueSendToBackFromISR(asyncEventQueue, (void*)&eventActions[menuLevel][event], pxHigherPriorityTaskWoken);
-    }
-  }
-  
+  }  
 }
 
 void InterruptButton::enableEvent(events event){
