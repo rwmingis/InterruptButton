@@ -7,34 +7,19 @@
 #include "esp_log.h"
 #endif
 
-#define ESP_INTR_FLAG_DEFAULT 0
-#define EVENT_TASK_PRIORITY     2             // a bit higher than arduino's loop()
-#define EVENT_TASK_STACK        4096
+#define ESP_INTR_FLAG_DEFAULT   0
+#define EVENT_TASK_PRIORITY     2             // One level higher than arduino's loop() which is priority level 1
+#define EVENT_TASK_STACK        2048          // Stack size associated with the queue servicer.
 #define EVENT_TASK_NAME         "BTN_ACTN"
 
-static const char* TAG = "IBTN";            // IDF log tag
-
-
-
-
-
-
+static const char* TAG = "IBTN";              // IDF log tag
 
 /* ToDo
   Need to confirm if any ISR's need to blocked/disabled from other ISR entry, ie portMUX highlevel/lowlevel, etc.
   Confirm all necessary varibables are volatile (noting timers throw an error when defined as volatile)
-
-IF second press of a doubleclick is held down, it won't longpress or autorepeat presss.
-
-Consider Adding button eventTypes such as momentary, latching, etc.
-Consider a static member queue common across all instances to maintain order of all Synchronous events across all buttons (and simplify processing the event actions in the main loop)
-Consider an RTOS queue.
-Consider adding chord combinations (2 or more buttons pressed conccurently) as a event.  Added to static class member, when any one button is pushed.
-corresponding buttons are checked to see if they are in waiting for release state (will be a factorial type check to minimise redundant checks)
-considered vortigont's note on thread safety:
-    "Thinking forward to thread safety, it might be even better to keep those methods not as static class members
-    but private classless functions (or namespace members). Passing pointers to dynamically created class instances
-    always has a tiny chance to hit the dangling pointer :))) Although it's not that critical in current implementation."
+  Consider Adding button eventTypes such as momentary, latching, etc.
+  Consider adding chord combinations (2 or more buttons pressed conccurently) as a event.  Added to static class member, when any one button is pushed.
+  corresponding buttons are checked to see if they are in waiting for release state (will be a factorial type check to minimise redundant checks)
 */
 
 //-- STATIC CLASS MEMBERS AND METHODS (COMMON ACROSS ALL INSTANCES TO SAVE MEMORY) -----------------------
@@ -240,9 +225,10 @@ void IRAM_ATTR InterruptButton::autoRepeatPressEvent(void *arg){
 //-- Method to return to interpret previous keyUp as a keyPress instead of a doubleClick if it times out.
 void IRAM_ATTR InterruptButton::doubleClickTimeout(void *arg){
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
-  btn->action(Event_KeyPress, btn->m_doubleClickMenuLevel);                                 // Then treat as a normal keyPress at the menuLevel when first click occurred
-                                                                                      // Note, this timer is never started if previous press was a longpress
   btn->m_wtgForDblClick = false;
+  if(gpio_get_level(btn->m_pin) != btn->m_pressedState)
+    btn->action(Event_KeyPress, btn->m_doubleClickMenuLevel);                         // Then treat as a normal keyPress at the menuLevel when first click occurred
+                                                                                      // Note, this timer is never started if previous press was a longpress
 }
 
 //-- Helper method to simplify starting a timer ----------------------------------------------------------
@@ -292,7 +278,6 @@ InterruptButton::InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t 
     ESP_LOGW(TAG, "%d is not valid gpio on this platform", pin);
     m_pin = static_cast<gpio_num_t>(-1);    //GPIO_NUM_NC (enum not showing up as defined);
   }
-
   m_pollIntervalUS = (debounceUS / m_targetPolls > 65535) ? 65535 : debounceUS / m_targetPolls;
 }
 
