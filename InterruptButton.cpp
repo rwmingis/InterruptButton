@@ -14,12 +14,22 @@
 
 static const char* TAG = "IBTN";              // IDF log tag
 
+
+
+
+
+
+
 /* ToDo
   Need to confirm if any ISR's need to blocked/disabled from other ISR entry, ie portMUX highlevel/lowlevel, etc.
   Confirm all necessary varibables are volatile (noting timers throw an error when defined as volatile)
   Consider Adding button eventTypes such as momentary, latching, etc.
   Consider adding chord combinations (2 or more buttons pressed conccurently) as a event.  Added to static class member, when any one button is pushed.
   corresponding buttons are checked to see if they are in waiting for release state (will be a factorial type check to minimise redundant checks)
+
+  Consider allowing a single button to follow it's own menu level and depart from the global menulevel.
+  This would be usefull when you have a powerbutton that doesn't change function and menu buttons that do
+  change their function based on what the current gui menu level is (like a soft key)
 */
 
 //-- STATIC CLASS MEMBERS AND METHODS (COMMON ACROSS ALL INSTANCES TO SAVE MEMORY) -----------------------
@@ -28,37 +38,31 @@ static const char* TAG = "IBTN";              // IDF log tag
 //--------------------------------------------------------------------------------------------------------
 
 //-- Initialise Static Member Variables ------------------------------------------------------------------
-uint8_t       InterruptButton::m_numMenus                               { 0 };                  // 0 Means not initialised, can be set by user; once set it can't be changed.
-uint8_t       InterruptButton::m_menuLevel                              { 0 };
-modes         InterruptButton::m_mode                                   { Mode_Asynchronous };
-bool          InterruptButton::m_classInitialised                       { false };
-func_ptr_t    InterruptButton::syncEventQueue[SYNC_EVENT_QUEUE_DEPTH] = { nullptr };
-QueueHandle_t InterruptButton::asyncEventQueue                          { nullptr };
-TaskHandle_t  InterruptButton::queueServicerHandle                      { nullptr };
+//--------------------------------------------------------------------------------------------------------
+uint8_t       InterruptButton::m_numMenus                                   { 0 };  // 0 Means not initialised, can be set by user; once set it can't be changed.
+uint8_t       InterruptButton::m_menuLevel                                  { 0 };
+modes         InterruptButton::m_mode                                       { Mode_Asynchronous };
+bool          InterruptButton::m_classInitialised                           { false };
+func_ptr_t    InterruptButton::m_asyncEventQueue[ASYNC_EVENT_QUEUE_DEPTH] = { nullptr };
+func_ptr_t    InterruptButton::m_syncEventQueue[SYNC_EVENT_QUEUE_DEPTH] =   { nullptr };
+TaskHandle_t  InterruptButton::m_asyncQueueServicerHandle                   { nullptr };
 
+// This is used to initialise the queue(s) and also switch between them.
 bool InterruptButton::setMode(modes mode){
-  // Flush the Synchronous Static event queue
-  for(uint8_t i = 0; i < SYNC_EVENT_QUEUE_DEPTH; i++) syncEventQueue[i] = nullptr;
-
-  // Flush the Asynchronous RTOS queue, if it exists
-  if(asyncEventQueue != nullptr) xQueueReset(asyncEventQueue);
+  // Flush both queues
+  for(uint8_t i = 0; i < ASYNC_EVENT_QUEUE_DEPTH; i++) m_asyncEventQueue[i] = nullptr;
+  for(uint8_t i = 0; i < SYNC_EVENT_QUEUE_DEPTH;  i++) m_syncEventQueue[i]  = nullptr;
   
   if(mode == Mode_Asynchronous || mode == Mode_Hybrid) {
     m_mode = mode;
-    // create the RTOS queue
-    if(asyncEventQueue == nullptr) asyncEventQueue = xQueueCreate( ASYNC_EVENT_QUEUE_DEPTH, sizeof(func_ptr_t) );
-    if(asyncEventQueue == nullptr) {
-      ESP_LOGE(TAG, "setMode(): Failed to create RTOS queue!");
-      return false;
-    }
 
     // Start the RTOS queue action service/task
     bool retVal;
-    if(queueServicerHandle != nullptr) {
-      vTaskResume(queueServicerHandle);   // Assuming it may have been paused earlier.
+    if(m_asyncQueueServicerHandle != nullptr) {
+      vTaskResume(m_asyncQueueServicerHandle);   // Assuming it may have been paused earlier.
       retVal = true;
     } else {
-      retVal = xTaskCreate(queueServicer, EVENT_TASK_NAME, EVENT_TASK_STACK, NULL, EVENT_TASK_PRIORITY, &queueServicerHandle) == pdPASS;
+      retVal = xTaskCreate(asyncQueueServicer, EVENT_TASK_NAME, EVENT_TASK_STACK, NULL, EVENT_TASK_PRIORITY, &m_asyncQueueServicerHandle) == pdPASS;
     }
     if(!retVal) {
       ESP_LOGE(TAG, "setMode(): Failed to create RTOS queue servicing task!");
@@ -68,7 +72,7 @@ bool InterruptButton::setMode(modes mode){
 
   } else if(mode == Mode_Synchronous) {
     m_mode = mode;
-    if(queueServicerHandle != nullptr)  vTaskSuspend(queueServicerHandle);
+    if(m_asyncQueueServicerHandle != nullptr)  vTaskSuspend(m_asyncQueueServicerHandle);
     return true;
 
   } else {
@@ -81,33 +85,44 @@ modes InterruptButton::getMode(){
   return m_mode;
 }
 
-void InterruptButton::queueServicer(void* pvParams){
-  func_ptr_t theAction = nullptr;
-  for (;;){
-    if (xQueueReceive(asyncEventQueue, (void*)&theAction, (portTickType)portMAX_DELAY)) {  // execute callback if btntrigger_t matches the one provided via Q
-      if(theAction != nullptr) theAction();
-      // if we ever break, this loop is deleted.
+void InterruptButton::asyncQueueServicer(void* pvParams){
+  while(1){
+    if(m_asyncEventQueue[0] != nullptr) {
+      m_asyncEventQueue[0]();                                   // Action the first entry
+
+      for(uint8_t i = 1; i < ASYNC_EVENT_QUEUE_DEPTH; i++) {    // Shift the rest down or clear this entry.
+        if(m_asyncEventQueue[i] != nullptr){
+          m_asyncEventQueue[i - 1] = m_asyncEventQueue[i];
+        } else {
+          m_asyncEventQueue[i - 1] = nullptr;
+          break;
+        }
+      }
     }
+    vTaskDelay(1);      // Required to yield to RTOS scheduler during idle times
   }
-  vTaskDelete(NULL);
+  vTaskDelete(NULL);    // Only reached if we put a condition in the primary while loop based on mode
 }
 
 void InterruptButton::processSyncEvents() {
-  for(uint8_t i = 0; i < SYNC_EVENT_QUEUE_DEPTH; i++) {
-    if(syncEventQueue[i] != nullptr){
-      syncEventQueue[i]();
-      syncEventQueue[i] = nullptr;
-    } else {
-      break;
+  while(m_syncEventQueue[0] != nullptr) {
+    m_syncEventQueue[0]();                                   // Action the first entry
+
+    for(uint8_t i = 1; i < SYNC_EVENT_QUEUE_DEPTH; i++) {    // Shift the rest down or clear this entry.
+      if(m_syncEventQueue[i] != nullptr){
+        m_syncEventQueue[i - 1] = m_syncEventQueue[i];
+      } else {
+        m_syncEventQueue[i - 1] = nullptr;
+        break;
+      }
     }
   }
 }
+
 
 //-- Method to monitor button, called by button change and various timer interrupts ----------------------
 void IRAM_ATTR InterruptButton::readButton(void *arg){
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
-  BaseType_t xCntxSwitch = pdFALSE;
-
 
   switch(btn->m_state){
     case Released:                                              // Was sitting released but just detected a signal from the button
@@ -116,6 +131,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
       btn->m_longPress_preventKeyPress = false;
       startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "DB_begin_");  // Begin debouncing the button input
       btn->m_state = ConfirmingPress;
+
       break;
 
     case ConfirmingPress:                                       // we get here each time the debounce timer expires (onchange interrupt disabled remember)
@@ -133,7 +149,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
       }
     // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
     case Pressing:                                              // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
-      btn->action(Event_KeyDown, &xCntxSwitch);                 // Fire the asynchronous keyDown event
+      btn->action(btn, Event_KeyDown);                 // Fire the asynchronous keyDown event
       startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_longKeyPressMS * 1000), &longPressEvent, btn, "CP1_");
       btn->m_state = Pressed;
       gpio_intr_enable(btn->m_pin);                             // Begin monitoring pin again
@@ -167,7 +183,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
 
     case Releasing:
       killTimer(btn->m_buttonLPandRepeatTimer);
-      btn->action(Event_KeyUp, &xCntxSwitch);
+      btn->action(btn, Event_KeyUp);
 
       if(btn->eventEnabled(Event_DoubleClick) && btn->eventEnabled(Event_All) &&                        // If double-clicks are enabled and defined
          btn->eventActions[m_menuLevel][Event_DoubleClick] != nullptr) {
@@ -175,7 +191,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         if(btn->m_wtgForDblClick) {                             // VALID DOUBLE-CLICK (second keyup without a timeout, would normally check 
           killTimer(btn->m_buttonDoubleClickTimer);             // esp_timer_is_active, but function not available in esp32 arduino core.
           btn->m_wtgForDblClick = false;
-          btn->action(Event_DoubleClick, &xCntxSwitch);
+          btn->action(btn, Event_DoubleClick);
 
         } else if (!btn->m_longPress_preventKeyPress) {         // Commence double-click detection process               
           btn->m_wtgForDblClick = true;
@@ -183,39 +199,38 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
           startTimer(btn->m_buttonDoubleClickTimer, uint64_t(btn->m_doubleClickMS * 1000), &doubleClickTimeout, btn, "W4R_DCsetup_");
         }
       } else if(!btn->m_longPress_preventKeyPress) {            // Otherwise, treat as a basic keyPress
-        btn->action(Event_KeyPress, &xCntxSwitch);              // Then treat as a normal keyPress
+        btn->action(btn, Event_KeyPress);                       // Then treat as a normal keyPress
       } 
       btn->m_state = Released;
       gpio_intr_enable(btn->m_pin);
       break;
   } // End of SWITCH statement
-  return;
 
-  if( xCntxSwitch ) portYIELD_FROM_ISR ();  // perform a context switch if we unblocked a higher priority task when adding to the queue.
+  return;
 } // End of readButton function
 
 
 //-- Method to handle longKeyPresses (called by timer)----------------------------------------------------
-void IRAM_ATTR InterruptButton::longPressEvent(void *arg){
+void InterruptButton::longPressEvent(void *arg){
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
 
-    btn->action(Event_LongKeyPress);                                                  // Action the Async LongKeyPress Event
-    btn->m_longPress_preventKeyPress = true;                                          // Used to prevent regular keypress later on in procedure.
-    
-    //Initiate the autorepeat function
-    if(gpio_get_level(btn->m_pin) == btn->m_pressedState) {                           // Sanity check to stop autorepeats in case we somehow missed button release
-      startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "LPD_");
-    }
+  btn->action(btn, Event_LongKeyPress);                                             // Action the Async LongKeyPress Event
+  btn->m_longPress_preventKeyPress = true;                                          // Used to prevent regular keypress later on in procedure.
+  
+  //Initiate the autorepeat function
+  if(gpio_get_level(btn->m_pin) == btn->m_pressedState) {                           // Sanity check to stop autorepeats in case we somehow missed button release
+    startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "LPD_");
+  }
 }
 
 //-- Method to handle autoRepeatPresses (called by timer)-------------------------------------------------
-void IRAM_ATTR InterruptButton::autoRepeatPressEvent(void *arg){
+void InterruptButton::autoRepeatPressEvent(void *arg){
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
 
   if(btn->eventActions[m_menuLevel][Event_AutoRepeatPress] != nullptr) {
-    btn->action(Event_AutoRepeatPress);                                               // Action the Async Auto Repeat KeyPress Event if defined
+    btn->action(btn, Event_AutoRepeatPress);                                          // Action the Async Auto Repeat KeyPress Event if defined
   } else {
-    btn->action(Event_KeyPress);                                                      // Action the Async KeyPress Event otherwise
+    btn->action(btn, Event_KeyPress);                                                 // Action the Async KeyPress Event otherwise
   }
   if(gpio_get_level(btn->m_pin) == btn->m_pressedState) {                             // Sanity check to stop autorepeats in case we somehow missed button release
     startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "ARPE_");
@@ -223,11 +238,11 @@ void IRAM_ATTR InterruptButton::autoRepeatPressEvent(void *arg){
 }
 
 //-- Method to return to interpret previous keyUp as a keyPress instead of a doubleClick if it times out.
-void IRAM_ATTR InterruptButton::doubleClickTimeout(void *arg){
+void InterruptButton::doubleClickTimeout(void *arg){
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
   btn->m_wtgForDblClick = false;
   if(gpio_get_level(btn->m_pin) != btn->m_pressedState)
-    btn->action(Event_KeyPress, btn->m_doubleClickMenuLevel);                         // Then treat as a normal keyPress at the menuLevel when first click occurred
+    btn->action(btn, Event_KeyPress, btn->m_doubleClickMenuLevel);                    // Then treat as a normal keyPress at the menuLevel when first click occurred
                                                                                       // Note, this timer is never started if previous press was a longpress
 }
 
@@ -238,6 +253,7 @@ void IRAM_ATTR InterruptButton::startTimer(esp_timer_handle_t &timer, uint32_t d
     tmrConfig.callback = callBack;
     tmrConfig.dispatch_method = ESP_TIMER_TASK;
     tmrConfig.name = msg;
+    // this line crashes the esp if button was created dynamically.
   killTimer(timer);
   esp_timer_create(&tmrConfig, &timer);
   esp_timer_start_once(timer, duration_US);
@@ -251,6 +267,32 @@ void IRAM_ATTR InterruptButton::killTimer(esp_timer_handle_t &timer){
     timer = nullptr;
   }
 }
+
+void IRAM_ATTR InterruptButton::action(InterruptButton* btn, events event, uint8_t menuLevel){  
+  if(menuLevel >= m_numMenus)                                                 return;   // Invalid menu level
+  if(!btn->eventEnabled(event) || !btn->eventEnabled(Event_All))              return;   // Specific event is or all events are disabled
+  if(btn->eventActions[menuLevel][event] == nullptr)                          return;   // Event is not defined
+
+ESP_LOGD(TAG,"Entered acton function.");
+  if(m_mode == Mode_Asynchronous || (m_mode == Mode_Hybrid && (event == Event_KeyDown || event == Event_KeyUp))) {
+    for(uint8_t i = 0; i < ASYNC_EVENT_QUEUE_DEPTH; i++){            // Action immediatley using RTOS asynchronous Queue
+      //ESP_LOGD(TAG,"Searching for free spot to add action: %d", i);
+      if(m_asyncEventQueue[i] == nullptr){
+        //ESP_LOGD(TAG,"\tAdding entry at position: %d", i);
+        m_asyncEventQueue[i] = btn->eventActions[menuLevel][event];
+        break;
+      }
+    }
+  } else {                                                           // Action when called in main loop hook using synchronous Queue
+    for(uint8_t i = 0; i < SYNC_EVENT_QUEUE_DEPTH; i++){
+      if(m_syncEventQueue[i] == nullptr){
+        m_syncEventQueue[i] = btn->eventActions[menuLevel][event];
+        break;
+      }
+    }
+  }  
+}
+
 
 
 //-- CLASS MEMBERS AND METHODS SPECIFIC TO A SINGLE INSTANCE (BUTTON) ------------------------------------
@@ -271,12 +313,11 @@ InterruptButton::InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t 
                                  m_autoRepeatMS(autoRepeatMS),
                                  m_doubleClickMS(doubleClickMS) {
 
-  // gpio number sanity check
-  if (GPIO_IS_VALID_GPIO(pin))
+  if (GPIO_IS_VALID_GPIO(pin))                  // Check for a valid pin first
     m_pin = static_cast<gpio_num_t>(pin);
   else {
     ESP_LOGW(TAG, "%d is not valid gpio on this platform", pin);
-    m_pin = static_cast<gpio_num_t>(-1);    //GPIO_NUM_NC (enum not showing up as defined);
+    m_pin = static_cast<gpio_num_t>(-1);        //GPIO_NUM_NC (enum not showing up as defined);
   }
   m_pollIntervalUS = (debounceUS / m_targetPolls > 65535) ? 65535 : debounceUS / m_targetPolls;
 }
@@ -335,12 +376,13 @@ uint16_t  InterruptButton::getDoubleClickInterval(void)                 { return
 // -- FUNCTIONS RELATED TO EXTERNAL ACTIONS --------------------------------------------------------------
 // -------------------------------------------------------------------------------------------------------
 void InterruptButton::bind(events event, uint8_t menuLevel, func_ptr_t action){
+  if(!m_thisButtonInitialised) initialiseInstance();
+
   if(menuLevel >= m_numMenus) {
     ESP_LOGE(TAG, "Specified menu level is greater than the number of menus!");
   } else if(event >= NumEventTypes) {
     ESP_LOGE(TAG, "Specified event is invalid!");
   } else {
-    if(!m_thisButtonInitialised) initialiseInstance(); 
     eventActions[menuLevel][event] = action;
     if(!eventEnabled(event)) enableEvent(event);
   }
@@ -361,27 +403,7 @@ void InterruptButton::unbind(events event, uint8_t menuLevel){
 
 
 
-void InterruptButton::action(events event, uint8_t menuLevel, BaseType_t *pxHigherPriorityTaskWoken){
-  if(menuLevel >= m_numMenus)                                                 return;   // Invalid menu level
-  if(!eventEnabled(event))                                                    return;   // Specific event is disabled
-  if(eventActions[menuLevel][event] == nullptr)                               return;   // Event is not defined
-  if(event >= Event_KeyDown && event <= Event_DoubleClick && !eventEnabled(Event_All))    return;   // This is an async event and they are disabled
-  
-  if(m_mode == Mode_Asynchronous || (m_mode == Mode_Hybrid && (event == Event_KeyDown || event == Event_KeyUp))) {  // Call action using RTOS
-    if(pxHigherPriorityTaskWoken == nullptr){
-      xQueueSendToBack(asyncEventQueue, (void*)&eventActions[menuLevel][event], (TickType_t)0);
-    } else {
-      xQueueSendToBackFromISR(asyncEventQueue, (void*)&eventActions[menuLevel][event], pxHigherPriorityTaskWoken);  
-    }
-  } else {                                                                // Otherwise call action using Static Queue
-    for(uint8_t i = 0; i < ASYNC_EVENT_QUEUE_DEPTH; i++){
-      if(syncEventQueue[i] == nullptr){
-        syncEventQueue[i] = eventActions[menuLevel][event];
-        break;
-      }
-    }
-  }  
-}
+
 
 void InterruptButton::enableEvent(events event){
   if(event <= Event_All && event != NumEventTypes) eventMask |= (1UL << (event));    // Set the relevant bit
@@ -407,6 +429,7 @@ void InterruptButton::setMenuLevel(uint8_t level) {
     ESP_LOGE(TAG, "Menu level '%d' must be >= 0 AND < number of menus (zero origin): ", level);
   }
 }
+
 uint8_t InterruptButton::getMenuLevel(){
   return m_menuLevel;
 }
