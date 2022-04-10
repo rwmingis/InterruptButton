@@ -16,10 +16,6 @@ static const char* TAG = "IBTN";              // IDF log tag
 
 
 
-
-
-
-
 /* ToDo
   Need to confirm if any ISR's need to blocked/disabled from other ISR entry, ie portMUX highlevel/lowlevel, etc.
   Confirm all necessary varibables are volatile (noting timers throw an error when defined as volatile)
@@ -91,12 +87,9 @@ void InterruptButton::asyncQueueServicer(void* pvParams){
       m_asyncEventQueue[0]();                                   // Action the first entry
 
       for(uint8_t i = 1; i < ASYNC_EVENT_QUEUE_DEPTH; i++) {    // Shift the rest down or clear this entry.
-        if(m_asyncEventQueue[i] != nullptr){
-          m_asyncEventQueue[i - 1] = m_asyncEventQueue[i];
-        } else {
-          m_asyncEventQueue[i - 1] = nullptr;
-          break;
-        }
+        m_asyncEventQueue[i - 1] = m_asyncEventQueue[i];
+        if(m_asyncEventQueue[i] == nullptr) break;
+        if(i == ASYNC_EVENT_QUEUE_DEPTH - 1) m_asyncEventQueue[i] = nullptr;
       }
     }
     vTaskDelay(1);      // Required to yield to RTOS scheduler during idle times
@@ -109,12 +102,9 @@ void InterruptButton::processSyncEvents() {
     m_syncEventQueue[0]();                                   // Action the first entry
 
     for(uint8_t i = 1; i < SYNC_EVENT_QUEUE_DEPTH; i++) {    // Shift the rest down or clear this entry.
-      if(m_syncEventQueue[i] != nullptr){
         m_syncEventQueue[i - 1] = m_syncEventQueue[i];
-      } else {
-        m_syncEventQueue[i - 1] = nullptr;
-        break;
-      }
+        if(m_syncEventQueue[i] == nullptr) break;
+        if(i == SYNC_EVENT_QUEUE_DEPTH - 1) m_syncEventQueue[i] = nullptr;
     }
   }
 }
@@ -273,7 +263,6 @@ void IRAM_ATTR InterruptButton::action(InterruptButton* btn, events event, uint8
   if(!btn->eventEnabled(event) || !btn->eventEnabled(Event_All))              return;   // Specific event is or all events are disabled
   if(btn->eventActions[menuLevel][event] == nullptr)                          return;   // Event is not defined
 
-ESP_LOGD(TAG,"Entered acton function.");
   if(m_mode == Mode_Asynchronous || (m_mode == Mode_Hybrid && (event == Event_KeyDown || event == Event_KeyUp))) {
     for(uint8_t i = 0; i < ASYNC_EVENT_QUEUE_DEPTH; i++){            // Action immediatley using RTOS asynchronous Queue
       //ESP_LOGD(TAG,"Searching for free spot to add action: %d", i);
