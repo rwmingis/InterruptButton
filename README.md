@@ -1,25 +1,25 @@
 # InterruptButton for ESP32 (Arduino / ESP IDF)
-This is highly responsive interrupt based button event library for the ESP32 suitable in the Arduino framework as well as the ESP IDF framework.  It uses the 'onChange' interrupt (rising or falling) for a given pin and the ESP high precision timer to carry the necessary pin-polling to facilitate a simple, but reliable debouncing and timing routines.  Once de-bounced, actions bound to certain button events including 'Key Down', 'Key Up', 'Key Press', 'Long Key Press', 'Auto-Repeat Press', and 'Double-clicks' are available to bind your own functions to.
+This is highly responsive and simple to use interrupt-based button event library for the ESP32 suitable in the Arduino framework as well as the ESP IDF framework.  It uses the 'onChange' interrupt (rising or falling) for a given pin and the ESP high precision timer to carry the necessary pin-polling to facilitate a simple, but reliable debouncing and timing routines.  Once de-bounced, actions bound to certain button events including 'Key Down', 'Key Up', 'Key Press', 'Long Key Press', 'Auto-Repeat Press', and 'Double-Clicks' are available to bind your own functions to.
 
-How the bound functions are executed depends on the mode you have set the library to: 'Mode_Asynchronous' (actioned immediately), 'Mode_Synchronous' (actioned in main loop hook and limited to main loop frequency), or 'Mode_Hybrid' where 'Key Up' and 'Key Down' are Asynchronous and the remainder of events are executed Synchronously.
+How the bound functions are executed depends on the mode you have set the library to: 'Mode_Asynchronous' (actioned immediately), 'Mode_Synchronous' (actioned in main loop), or 'Mode_Hybrid' where 'Key Up' and 'Key Down' are Asynchronous and the remainder of events are executed Synchronously.
 
 This makes employing extended button functions VERY. EASY. TO. DO.  Only the first 2 lines below are required to get it going:
 
 ```
-  // Global variable
+  // ----- Global variable --------
   InterruptButton button1(32, LOW);                                              // Monitor pin 35, LOW when pressed
   
-  // Setup Function
-  button1.bind(InterruptButton::Event_KeyPress, &menu0Button1keyPress);          // Bind a predefined function to the event                               
-  button1.bind(InterruptButton::Event_DoubleClick, [](){ /* do stuff here */ }); // You can bind a predefined function like before or
-                                                                                 // you can use LAMBDA functions
-                                                                                 // (functions with no name)
+  // ----- setup() function -------
+  button1.bind(InterruptButton::Event_KeyPress, &menu0Button1keyPress);          // Bind a predefined function to the event
+  
+  // Alternatively you may bind a lambda function directy which saves having to define it elsewhere
+  button1.bind(InterruptButton::Event_DoubleClick, [](){ /* do stuff here */ });
                                                                                  
   // ------------------------------------------------------------------------------------------------------
   // If you have selected Mode_Synchronous, then you'll need to action the event in the main loops as below
   // ------------------------------------------------------------------------------------------------------
 
-  // Main Loop
+  // ----- Main loop() function ----
   button1.processSyncEvents();                                                   // Only required if using sync events
 ```
 
@@ -52,14 +52,43 @@ Events are actioned by calling user defined functions attached to specific butto
 
 ### Example Usage
 This is an output of the serial port from the example file.  Here just the Serial.Println() function is called, but you can replace that with your own code to do what you need.
+
 ```
-EXAMPLE OUTPUT PENDING
+Menu 0, Button 1: Key Down:              5371114 ms
+Menu 0, Button 1: Key Up:                5371340 ms
+Menu 0, Button 1: Key Press:             5371540 ms
+Menu 0, Button 1: Key Down:              5373335 ms
+Menu 0, Button 1: Long Key Press:        5374085 ms
+Menu 0, Button 1: Auto Repeat Key Press: 5374335 ms
+Menu 0, Button 1: Key Up:                5374472 ms
+Menu 0, Button 1: Key Down:              5376200 ms
+Menu 0, Button 1: Key Up:                5376380 ms
+Menu 0, Button 1: Key Press:             5376580 ms
+Menu 0, Button 1: Key Down:              5377305 ms
+Menu 0, Button 1: Long Key Press:        5378055 ms
+Menu 0, Button 1: Auto Repeat Key Press: 5378305 ms
+Menu 0, Button 1: Auto Repeat Key Press: 5378555 ms
+Menu 0, Button 1: Auto Repeat Key Press: 5378805 ms
+Menu 0, Button 1: Auto Repeat Key Press: 5379055 ms
+Menu 0, Button 1: Key Up:                5379145 ms
+Menu 0, Button 2: Key Down:              5380088 ms
+Menu 0, Button 2: Key Up  :              5380378 ms
+Menu 0, Button 2: Key Press:             5380578 ms
+Menu 0, Button 2: Key Down:              5381342 ms
+Menu 0, Button 2: Long Press:            5382092 ms - Disabling doubleclicks and switing to menu level 1
+Menu 1, Button 2: Auto Repeat Key Press: 5382343 ms
+Menu 1, Button 2: Key Up  :              5382440 ms
+Menu 1, Button 1: Key Down:              5389981 ms
+Menu 1, Button 1: Key Up:                5390070 ms
+Menu 1, Button 1: Key Down:              5390149 ms
+Menu 1, Button 1: Key Up:                5390264 ms
+Menu 1, Button 1: Double Click:          5390265 ms - Changing to ASYNCHRONOUS mode and to menu level 0
 ```
 
 ## Functional Flow Diagram ##
 The flow diagram below shows the basic function of the library.  It is pending an update to include some recent updates and additions such as 'autoRepeatPress'
 
-![This is an image](images/flowDiagram.png)
+![Flow Diagram](images/flowDiagram.png)
 
 
 ## Roadmap Forward ##
