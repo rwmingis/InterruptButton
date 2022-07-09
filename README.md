@@ -1,7 +1,7 @@
 # InterruptButton (Arduino / ESP IDF)
 This is highly responsive interrupt based button event library for the ESP32 suitable in the Arduino framework as well as the ESP IDF framework.  It uses the 'onChange' interrupt (rising or falling) for a given pin and the ESP high precision timer to carry the necessary pin-polling to facilitate a simple, but reliable debouncing and timing routines.  Once de-bounced, actions bound to certain button events including 'Key Down', 'Key Up', 'Key Press', 'Long Key Press', 'Auto-Repeat Press', and 'Double-clicks' are available to bind your own functions to.
 
-How the bound functions are executed depends on the mode you have set the library to: 'Mode_Asynchronous' (actioned immediately), 'Mode_Synchronous' (actioned in main loop hook), or 'Mode_Hybrid' where 'Key Up' and 'Key Down' are Asynchronous and the remainder of events are executed Synchronously.
+How the bound functions are executed depends on the mode you have set the library to: 'Mode_Asynchronous' (actioned immediately), 'Mode_Synchronous' (actioned in main loop hook and limited to main loop frequency), or 'Mode_Hybrid' where 'Key Up' and 'Key Down' are Asynchronous and the remainder of events are executed Synchronously.
 
 This makes employing extended button functions VERY. EASY. TO. DO.  Only the first 2 lines below are required to get it going:
 
@@ -27,7 +27,7 @@ With a built in user-defined menu/paging system, each button can be bound to mul
 
 The use of interrupts instead of laborious button polling means that actions bound to the button are NOT limited to the main loop frequency which significantly reduces the chance of missed presses with long main loop durations.
 
-There are 6 events and a menu/paging structure which is only limited to your memory on chip (which is huge for the ESP32).  This means you could attach 6 different functions to a single button per menu level per page.  Ie if you have a 4 page gui menu, one button associated with that menu could have up to 24 actions bound to it!
+There are 6 events and a menu/paging structure which is only limited to your memory on chip (which is huge for the ESP32).  This means you could attach 6 different user-defined action functions to a single button per menu level per page.  Ie if you have a 4 page gui menu, one button associated with that interface could have up to 24 actions bound to it!
 
 ## It allows for the following:
 
