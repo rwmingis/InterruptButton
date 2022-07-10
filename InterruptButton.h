@@ -1,8 +1,6 @@
-// New in version 2.0.0
-// Implemented RTOS queue and deleted sync events.
-// Added an optional STATIC class Synchronous Queue.
-// Added mode selection to change how events are actioned (but no change in detections)
-// All external functions are executed outside of ISR and in RTOS scope, so no need for IRAM
+// New in version 2.0.1
+// Moved RTOS task servicer to Core 1
+// Blocked doubleclicks and key presses in the event of an autokeypress event.
 
 #ifndef InterruptButton_h
 #define InterruptButton_h
@@ -43,10 +41,10 @@ enum events:uint8_t {
 class InterruptButton {
   private:
     enum buttonStates {                 // Enumeration to assist with program flow at state machine for reading button
-      Released, 
+      Released,
       ConfirmingPress,
       Pressing,
-      Pressed, 
+      Pressed,
       WaitingForRelease,
       Releasing
     };
@@ -59,14 +57,14 @@ class InterruptButton {
     static void autoRepeatPressEvent(void *arg);                      // Callback to excecute a autoRepeatPress event, called by timer
     static void doubleClickTimeout(void *arg);                        // Callback used to separate double-clicks from regular keyPress's, called by timer
     static void startTimer(esp_timer_handle_t &timer,                 // Helper func to start timer.
-                           uint32_t duration_US, 
+                           uint32_t duration_US,
                            void (*callBack)(void* arg),
-                           InterruptButton* btn, 
-                           const char *msg); 
+                           InterruptButton* btn,
+                           const char *msg);
     static void killTimer(esp_timer_handle_t &timer);                 // Helper function to kill a timer
-    
+
     static void action(InterruptButton  *btn,                         // Helper function to simplify calling actions at specified menulevel
-                       events           event,                                
+                       events           event,
                        uint8_t          menuLevel);
     inline static void action(InterruptButton* btn, events event) { action(btn, event, m_menuLevel); };
 
@@ -97,10 +95,10 @@ class InterruptButton {
     volatile uint8_t      m_doubleClickMenuLevel;                     // Stores current menulevel while differentiating between regular keyPress or a double-click
     uint16_t              m_pollIntervalUS;                           // Timing variables
     uint16_t              m_longKeyPressMS;
-    uint16_t              m_autoRepeatMS;           
+    uint16_t              m_autoRepeatMS;
     uint16_t              m_doubleClickMS;
-     
-    volatile bool         m_longPress_preventKeyPress;                // Boolean flag to prevent firing a keypress if a long press occurred (outside of polling fuction)
+
+    volatile bool         m_blockKeyPress;                            // Boolean flag to prevent firing a keypress if a longPress or AutoRepeatPress occurred (outside of polling fuction)
     volatile uint16_t     m_validPolls = 0;                           // Variables to conduct debouncing algoritm
     volatile uint16_t     m_totalPolls = 0;
 
@@ -123,10 +121,10 @@ class InterruptButton {
     // Non-static instance specific member declarations ----------------------------------
     InterruptButton(uint8_t pin,                                      // Class Constructor, pin to monitor
                     uint8_t pressedState,                             // State of the pin when pressed (HIGH or LOW)
-                    gpio_mode_t pinMode = GPIO_MODE_INPUT,            
-                    uint16_t longKeyPressMS = 750, 
+                    gpio_mode_t pinMode = GPIO_MODE_INPUT,
+                    uint16_t longKeyPressMS = 750,
                     uint16_t autoRepeatMS =   250,
-                    uint16_t doubleClickMS =  200, 
+                    uint16_t doubleClickMS =  333,
                     uint32_t debounceUS =     8000);
     ~InterruptButton();                                               // Class Destructor
 
@@ -143,8 +141,8 @@ class InterruptButton {
 
     // Routines to manage interface with external action functions associated with each event ---
     void            bind(events     event,                                  // Used to bind an action to an event at a given menulevel
-                         uint8_t    menuLevel, 
-                         func_ptr_t action);                                 
+                         uint8_t    menuLevel,
+                         func_ptr_t action);
     inline void     bind(events event, func_ptr_t action) { bind(event, m_menuLevel, action); } // Above function defaulting to current menulevel
 
     void            unbind(events   event,                                  // Used to unbind an action to an event at a given menulevel
