@@ -12,6 +12,7 @@
 #define EVENT_TASK_PRIORITY     2             // One level higher than arduino's loop() which is priority level 1
 #define EVENT_TASK_STACK        4096          // Stack size associated with the queue servicer 
 #define EVENT_TASK_NAME         "BTN_ACTN"
+#define EVENT_TASK_CORE         1             // Same core as setup() and loop()
 
 static const char* TAG = "IBTN";              // IDF log tag
 
@@ -60,7 +61,8 @@ bool InterruptButton::setMode(modes mode){
       vTaskResume(m_asyncQueueServicerHandle);   // Assuming it may have been paused earlier.
       retVal = true;
     } else {
-      retVal = xTaskCreate(asyncQueueServicer, EVENT_TASK_NAME, m_RTOSservicerStackDepth, NULL, EVENT_TASK_PRIORITY, &m_asyncQueueServicerHandle) == pdPASS;
+      retVal = xTaskCreatePinnedToCore(asyncQueueServicer, EVENT_TASK_NAME, m_RTOSservicerStackDepth, NULL, 
+                                       EVENT_TASK_PRIORITY, &m_asyncQueueServicerHandle, EVENT_TASK_CORE) == pdPASS;
     }
     if(!retVal) ESP_LOGE(TAG, "setMode(): Failed to create RTOS queue servicing task!");
     return retVal;
@@ -118,7 +120,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
     case Released:                                              // Was sitting released but just detected a signal from the button
       gpio_intr_disable(btn->m_pin);                            // Ignore change inputs while we poll for a valid press
       btn->m_validPolls = 1; btn->m_totalPolls = 1;             // Was released, just detected a change, must be a valid press so count it.
-      btn->m_longPress_preventKeyPress = false;
+      btn->m_blockKeyPress = false;
       startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "DB_begin_");  // Begin debouncing the button input
       btn->m_state = ConfirmingPress;
 
@@ -140,7 +142,12 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
     // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
     case Pressing:                                              // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
       btn->action(btn, Event_KeyDown);                 // Fire the asynchronous keyDown event
-      startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_longKeyPressMS * 1000), &longPressEvent, btn, "CP1_");
+      if(btn->eventEnabled(Event_LongKeyPress) && btn->eventActions[m_menuLevel][Event_LongKeyPress] != nullptr){
+        startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_longKeyPressMS * 1000), &longPressEvent, btn, "CP1_");
+      } else if (btn->eventEnabled(Event_AutoRepeatPress)) {
+        startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "CP1_");
+      }
+
       btn->m_state = Pressed;
       gpio_intr_enable(btn->m_pin);                             // Begin monitoring pin again
       break;
@@ -183,12 +190,12 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
           btn->m_wtgForDblClick = false;
           btn->action(btn, Event_DoubleClick);
 
-        } else if (!btn->m_longPress_preventKeyPress) {         // Commence double-click detection process               
+        } else if (!btn->m_blockKeyPress) {                     // Commence double-click detection process               
           btn->m_wtgForDblClick = true;
           btn->m_doubleClickMenuLevel = m_menuLevel;            // Save menuLevel in case this is converted to a keyPress later
           startTimer(btn->m_buttonDoubleClickTimer, uint64_t(btn->m_doubleClickMS * 1000), &doubleClickTimeout, btn, "W4R_DCsetup_");
         }
-      } else if(!btn->m_longPress_preventKeyPress) {            // Otherwise, treat as a basic keyPress
+      } else if(!btn->m_blockKeyPress) {                        // Otherwise, treat as a basic keyPress
         btn->action(btn, Event_KeyPress);                       // Then treat as a normal keyPress
       } 
       btn->m_state = Released;
@@ -205,11 +212,11 @@ void InterruptButton::longPressEvent(void *arg){
   if(m_deleteInProgress) return;
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
 
-  btn->action(btn, Event_LongKeyPress);                                             // Action the Async LongKeyPress Event
-  btn->m_longPress_preventKeyPress = true;                                          // Used to prevent regular keypress later on in procedure.
+  btn->action(btn, Event_LongKeyPress);                                     // Action the Async LongKeyPress Event
+  btn->m_blockKeyPress = true;                                              // Used to prevent regular keypress or doubleclick later on in procedure.
   
   //Initiate the autorepeat function
-  if(gpio_get_level(btn->m_pin) == btn->m_pressedState) {                           // Sanity check to stop autorepeats in case we somehow missed button release
+  if(btn->eventEnabled(Event_AutoRepeatPress) && gpio_get_level(btn->m_pin) == btn->m_pressedState) { // Sanity check to stop autorepeats in case we somehow missed button release
     startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "LPD_");
   }
 }
@@ -218,14 +225,15 @@ void InterruptButton::longPressEvent(void *arg){
 void InterruptButton::autoRepeatPressEvent(void *arg){
   if(m_deleteInProgress) return;
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
+  btn->m_blockKeyPress = true;                                              // Used to prevent regular keypress or doubleclick later on in procedure.
 
   if(btn->eventActions[m_menuLevel][Event_AutoRepeatPress] != nullptr) {
-    btn->action(btn, Event_AutoRepeatPress);                                          // Action the Async Auto Repeat KeyPress Event if defined
+    btn->action(btn, Event_AutoRepeatPress);                                // Action the Async Auto Repeat KeyPress Event if defined
   } else {
-    btn->action(btn, Event_KeyPress);                                                 // Action the Async KeyPress Event otherwise
+    btn->action(btn, Event_KeyPress);                                       // Action the Async KeyPress Event otherwise
   }
-  if(gpio_get_level(btn->m_pin) == btn->m_pressedState) {                             // Sanity check to stop autorepeats in case we somehow missed button release
-    startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "ARPE_");
+  if(btn->eventEnabled(Event_AutoRepeatPress) && gpio_get_level(btn->m_pin) == btn->m_pressedState) { // Sanity check to stop autorepeats in case we somehow missed button release
+    startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_autoRepeatMS * 1000), &autoRepeatPressEvent, btn, "LPD_");
   }
 }
 
