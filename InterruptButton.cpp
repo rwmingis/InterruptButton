@@ -139,6 +139,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "CP2_");  // Keep sampling pin state
         return;
       }
+      [[fallthrough]];
     // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
     case Pressing:                                              // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
       btn->action(btn, Event_KeyDown);                 // Fire the asynchronous keyDown event
@@ -176,6 +177,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         }
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "W4R_invalidPoll"); // Keep sampling pin state until released
       }
+      [[fallthrough]];
     // Intended spill through here (no break) to "Releasing" once keyUp confirmed.
 
     case Releasing:
@@ -361,7 +363,7 @@ void InterruptButton::initialiseInstance(void){
       gpio_conf.pull_up_en =   (m_pressedState) ? GPIO_PULLUP_DISABLE : GPIO_PULLUP_ENABLE;
       gpio_conf.intr_type = GPIO_INTR_ANYEDGE;
     gpio_config(&gpio_conf);
-    gpio_isr_handler_add(m_pin, InterruptButton::readButton, (void*)this);
+    gpio_isr_handler_add(m_pin, InterruptButton::readButton, reinterpret_cast<void*>(this));
     m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released;     // Set to current state when initialising
     m_thisButtonInitialised = true;
 }

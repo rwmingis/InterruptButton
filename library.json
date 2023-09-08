@@ -6,7 +6,7 @@
         {
             "name": "R. Mingis",
             "maintainer": true
-        }
+                }
     ],
     "repository": {
         "type": "git",
@@ -14,6 +14,7 @@
     },
     "version": "1.0.0",
     "frameworks": "Arduino",
+    "platforms": ["espressif32"],
     "examples": [
         "examples/*.ino"
     ]
