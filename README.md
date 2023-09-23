@@ -10,10 +10,10 @@ This makes employing extended button functions VERY. EASY. TO. DO.  Only the fir
   InterruptButton button1(32, LOW);                                              // Monitor pin 35, LOW when pressed
   
   // ----- setup() function -------
-  button1.bind(InterruptButton::Event_KeyPress, &menu0Button1keyPress);          // Bind a predefined function to the event
+  button1.bind(Event_KeyPress, &menu0Button1keyPress);          // Bind a predefined function to the event
   
   // Alternatively you may bind a lambda function directy which saves having to define it elsewhere
-  button1.bind(InterruptButton::Event_DoubleClick, [](){ /* do stuff here */ });
+  button1.bind(Event_DoubleClick, [](){ /* do stuff here */ });
                                                                                  
   // ------------------------------------------------------------------------------------------------------
   // If you have selected Mode_Synchronous, then you'll need to action the event in the main loops as below
