@@ -19,7 +19,6 @@ static const char* TAG = "IBTN";              // IDF log tag
 
 
 /* ToDo
-  XXXX  void InterruptButton::bind(events event, uint8_t menuLevel, func_ptr_t action) seems to be able to bind to numEvents and numMenus, not numEvents-1 and numMenus-1, ie <= instead of <
   1. Need to confirm if any ISR's need to blocked/disabled from other ISR entry, ie portMUX highlevel/lowlevel, etc.
   2. Consider Adding button eventTypes such as momentary, latching, etc.
   3. Consider adding chord combinations (2 or more buttons pressed concurently) as a event.  Added to static class member, when any one button is pushed.
