@@ -10,13 +10,14 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include <functional>
 
 #define ASYNC_EVENT_QUEUE_DEPTH   5     // This queue is serviced very quickly so can be short
 #define SYNC_EVENT_QUEUE_DEPTH    10    // This queue is limited to mainloop frequency so actions can backup
 #define TARGET_POLLS              10    // Number of times to poll a button to determine it's state
 
 
-typedef void (*func_ptr_t)(void);       // Typedef to faciliate managing pointers to external action functions
+typedef std::function<void()> func_ptr_t; // Typedef to faciliate managing pointers to external action functions
 
 enum modes {
   Mode_Asynchronous,                    // All actions performed via Asynchronous RTOS queue
