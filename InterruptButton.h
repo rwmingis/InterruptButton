@@ -2,8 +2,9 @@
 // Moved RTOS task servicer to Core 1
 // Blocked doubleclicks and key presses in the event of an autokeypress event.
 
-#ifndef InterruptButton_h
-#define InterruptButton_h
+#ifndef INTERRUPTBUTTON_H_
+#define INTERRUPTBUTTON_H_
+
 
 #include "driver/gpio.h"
 #include "esp_timer.h"
@@ -151,4 +152,4 @@ class InterruptButton {
     inline void     unbind(events event) { unbind(event, m_menuLevel); };   // Above function defaulting to current menulevel
 };
 
-#endif
+#endif // INTERRUPTBUTTON_H_
