@@ -93,7 +93,7 @@ void InterruptButton::asyncQueueServicer(void* pvParams){
         if(i == ASYNC_EVENT_QUEUE_DEPTH - 1) m_asyncEventQueue[i] = nullptr;
       }
     }
-    vTaskDelay(1);      // Required to yield to RTOS scheduler during idle times
+    vTaskDelay(10 / ((TickType_t)1000 / configTICK_RATE_HZ));    // Required to yield to RTOS scheduler during idle times
   }
   vTaskDelete(NULL);    // Only reached if we put a condition in the primary while loop based on mode
 }
@@ -139,9 +139,9 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "CP2_");  // Keep sampling pin state
         return;
       }
-    // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
+      [[fallthrough]]                                           // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
     case Pressing:                                              // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
-      btn->action(btn, Event_KeyDown);                 // Fire the asynchronous keyDown event
+      btn->action(btn, Event_KeyDown);                          // Add the keyDown action to the relevant queue
       if(btn->eventEnabled(Event_LongKeyPress) && btn->eventActions[m_menuLevel][Event_LongKeyPress] != nullptr){
         startTimer(btn->m_buttonLPandRepeatTimer, uint64_t(btn->m_longKeyPressMS * 1000), &longPressEvent, btn, "CP1_");
       } else if (btn->eventEnabled(Event_AutoRepeatPress)) {
@@ -176,19 +176,19 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         }
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "W4R_invalidPoll"); // Keep sampling pin state until released
       }
-    // Intended spill through here (no break) to "Releasing" once keyUp confirmed.
+      [[fallthrough]]                                           // Intended spill through here (no break) to "Releasing" once keyUp confirmed.
 
     case Releasing:
       killTimer(btn->m_buttonLPandRepeatTimer);
-      btn->action(btn, Event_KeyUp);
+      btn->action(btn, Event_KeyUp);                            // Add the keyUp action to the relevant queue
 
-      if(btn->eventEnabled(Event_DoubleClick) && btn->eventEnabled(Event_All) &&                        // If double-clicks are enabled and defined
+      if(btn->eventEnabled(Event_DoubleClick) && btn->eventEnabled(Event_All) &&     // If double-clicks are enabled and defined
          btn->eventActions[m_menuLevel][Event_DoubleClick] != nullptr) {
 
         if(btn->m_wtgForDblClick) {                             // VALID DOUBLE-CLICK (second keyup without a timeout, would normally check 
           killTimer(btn->m_buttonDoubleClickTimer);             // esp_timer_is_active, but function not available in esp32 arduino core.
           btn->m_wtgForDblClick = false;
-          btn->action(btn, Event_DoubleClick);
+          btn->action(btn, Event_DoubleClick);                  // Add the double-click action to the relevant queue
 
         } else if (!btn->m_blockKeyPress) {                     // Commence double-click detection process               
           btn->m_wtgForDblClick = true;
@@ -212,7 +212,7 @@ void InterruptButton::longPressEvent(void *arg){
   if(m_deleteInProgress) return;
   InterruptButton* btn = reinterpret_cast<InterruptButton*>(arg);
 
-  btn->action(btn, Event_LongKeyPress);                                     // Action the Async LongKeyPress Event
+  btn->action(btn, Event_LongKeyPress);                                     // Add the long keypress action to the relevant queue
   btn->m_blockKeyPress = true;                                              // Used to prevent regular keypress or doubleclick later on in procedure.
   
   //Initiate the autorepeat function
@@ -361,7 +361,7 @@ void InterruptButton::initialiseInstance(void){
       gpio_conf.pull_up_en =   (m_pressedState) ? GPIO_PULLUP_DISABLE : GPIO_PULLUP_ENABLE;
       gpio_conf.intr_type = GPIO_INTR_ANYEDGE;
     gpio_config(&gpio_conf);
-    gpio_isr_handler_add(m_pin, InterruptButton::readButton, (void*)this);
+    gpio_isr_handler_add(m_pin, InterruptButton::readButton, reinterpret_cast<void*>(this));
     m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released;     // Set to current state when initialising
     m_thisButtonInitialised = true;
 }
