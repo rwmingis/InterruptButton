@@ -1,7 +1,7 @@
 {
     "name": "InterruptButton",
     "description": "Interrupt driven events for hardware buttons",
-    "keywords": "ïnterrupt, button, event",
+    "keywords": "ïnterrupt, button, event, action, bind, synchronous, asynchronous, RTOS",
     "authors": [
         {
             "name": "R. Mingis",
