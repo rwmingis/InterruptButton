@@ -8,6 +8,7 @@
 
 #include "driver/gpio.h"
 #include "esp_timer.h"
+#include "esp32-hal-gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -121,6 +122,15 @@ class InterruptButton {
                                                                       // Must be set before initialsing/binding first button or calling setMode().
 
     // Non-static instance specific member declarations ----------------------------------
+
+    // when using this constructor and not setting a pin, you must initialize a pin later with setPin()
+    InterruptButton(uint8_t pressedState = LOW,
+                    gpio_mode_t pinMode = GPIO_MODE_INPUT,
+                    uint16_t longKeyPressMS = 750,
+                    uint16_t autoRepeatMS =   250,
+                    uint16_t doubleClickMS =  333,
+                    uint32_t debounceUS =     8000);
+ 
     InterruptButton(uint8_t pin,                                      // Class Constructor, pin to monitor
                     uint8_t pressedState,                             // State of the pin when pressed (HIGH or LOW)
                     gpio_mode_t pinMode = GPIO_MODE_INPUT,
@@ -129,6 +139,14 @@ class InterruptButton {
                     uint16_t doubleClickMS =  333,
                     uint32_t debounceUS =     8000);
     ~InterruptButton();                                               // Class Destructor
+
+    void setPin(uint8_t pin);
+    void setPressedState(uint8_t pressedState) { m_pressedState = pressedState; }
+    void setPinMode(gpio_mode_t pinMode) { m_pinMode = pinMode; }
+    void setLongKeyPressMS(uint16_t longKeyPressMS) { m_longKeyPressMS = longKeyPressMS; }
+    void setAutoRepeatMS(uint16_t autoRepeatMS) { m_autoRepeatMS = autoRepeatMS; }
+    void setDoubleClickMS(uint16_t doubleClickMS) { m_doubleClickMS = doubleClickMS; }
+    void setDebounceUS(uint32_t debounceUS) { m_pollIntervalUS = (debounceUS / TARGET_POLLS > 65535) ? 65535 : debounceUS / TARGET_POLLS; }
 
     void            enableEvent(events event);                        // Enable the event passed as argument (updates bitmask)
     void            disableEvent(events event);                       // Disable the event passed as argument (updates bitmask)
