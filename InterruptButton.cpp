@@ -139,7 +139,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "CP2_");  // Keep sampling pin state
         return;
       }
-      [[fallthrough]]                                           // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
+      [[fallthrough]];                                           // Planned spill through here (no break) if logic requires, ie keyDown confirmed.
     case Pressing:                                              // VALID KEYDOWN, assumed pressed if it had valid polls more than half the time
       btn->action(btn, Event_KeyDown);                          // Add the keyDown action to the relevant queue
       if(btn->eventEnabled(Event_LongKeyPress) && btn->eventActions[m_menuLevel][Event_LongKeyPress] != nullptr){
@@ -176,7 +176,7 @@ void IRAM_ATTR InterruptButton::readButton(void *arg){
         }
         startTimer(btn->m_buttonPollTimer, btn->m_pollIntervalUS, &readButton, btn, "W4R_invalidPoll"); // Keep sampling pin state until released
       }
-      [[fallthrough]]                                           // Intended spill through here (no break) to "Releasing" once keyUp confirmed.
+      [[fallthrough]];                                           // Intended spill through here (no break) to "Releasing" once keyUp confirmed.
 
     case Releasing:
       killTimer(btn->m_buttonLPandRepeatTimer);
