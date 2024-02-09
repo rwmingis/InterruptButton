@@ -12,6 +12,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include <functional>
+#include "freertos/semphr.h"
 
 #define ASYNC_EVENT_QUEUE_DEPTH   5     // This queue is serviced very quickly so can be short
 #define SYNC_EVENT_QUEUE_DEPTH    10    // This queue is limited to mainloop frequency so actions can backup
@@ -79,7 +80,8 @@ class InterruptButton {
     static uint8_t        m_numMenus;                                 // Total number of menu sets, can be set by user, but only before initialising first button
     static uint8_t        m_menuLevel;                                // Current menulevel for all buttons (global in class so common across all buttons)
     static modes          m_mode;
-    static bool           m_deleteInProgress;                         // Precautionary blocker to prevent asyc calls of object methods while they are being deleted
+    volatile static bool           m_deleteInProgress;                         // Precautionary blocker to prevent asyc calls of object methods while they are being deleted
+    static SemaphoreHandle_t xMutex;
 
     // Non-static instance specific member declarations
     // ------------------------------------------------
