@@ -12,7 +12,7 @@
         "type": "git",
          "url": "https://github.com/rwmingis/InterruptButton"
     },
-    "version": "2.0.1",
+    "version": "2.0.2",
     "frameworks": "Arduino",
     "platforms": ["espressif32"],
     "examples": [
