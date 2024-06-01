@@ -315,13 +315,19 @@ InterruptButton::InterruptButton(uint8_t pin, uint8_t pressedState, gpio_mode_t 
                                  m_autoRepeatMS(autoRepeatMS),
                                  m_doubleClickMS(doubleClickMS) {
 
-  if (GPIO_IS_VALID_GPIO(pin))                  // Check for a valid pin first
-    m_pin = static_cast<gpio_num_t>(pin);
-  else {
-    ESP_LOGW(TAG, "%d is not valid gpio on this platform", pin);
-    m_pin = static_cast<gpio_num_t>(-1);        //GPIO_NUM_NC (enum not showing up as defined);
-  }
-  m_pollIntervalUS = (debounceUS / TARGET_POLLS > 65535) ? 65535 : debounceUS / TARGET_POLLS;
+  setPin(pin);
+  setDebounceUS(debounceUS);
+}
+
+InterruptButton::InterruptButton(uint8_t pressedState, gpio_mode_t pinMode,
+                                 uint16_t longKeyPressMS, uint16_t autoRepeatMS, 
+                                 uint16_t doubleClickMS,  uint32_t debounceUS) :
+                                 m_pressedState(pressedState),
+                                 m_pinMode(pinMode),
+                                 m_longKeyPressMS(longKeyPressMS),
+                                 m_autoRepeatMS(autoRepeatMS),
+                                 m_doubleClickMS(doubleClickMS) {
+  setDebounceUS(debounceUS);
 }
 
 // Destructor --------------------------------------------------------------------
@@ -334,6 +340,38 @@ InterruptButton::~InterruptButton() {
   for(int menu = 0; menu < m_numMenus; menu++) delete [] eventActions[menu];
   delete [] eventActions;
   m_deleteInProgress = false;
+}
+
+void InterruptButton::setPin(uint8_t pin) {
+  // check if we have to re-initialize the existing interrupt handler
+  const bool pinUpdated = m_pin != pin;
+  if(m_thisButtonInitialised && pinUpdated && GPIO_IS_VALID_GPIO(m_pin))  {
+    m_deleteInProgress = true;
+    gpio_isr_handler_remove(m_pin);
+    killTimer(m_buttonPollTimer); killTimer(m_buttonLPandRepeatTimer); killTimer(m_buttonDoubleClickTimer);
+    gpio_reset_pin(m_pin);
+    m_deleteInProgress = false;
+  }
+
+  // store the new pin value
+  if (GPIO_IS_VALID_GPIO(pin))                  // Check for a valid pin first
+    m_pin = static_cast<gpio_num_t>(pin);
+  else {
+    ESP_LOGW(TAG, "%d is not valid gpio on this platform", pin);
+    m_pin = static_cast<gpio_num_t>(-1);        //GPIO_NUM_NC (enum not showing up as defined);
+  }
+
+  if(m_thisButtonInitialised && pinUpdated && GPIO_IS_VALID_GPIO(m_pin)) {
+    gpio_config_t gpio_conf = {};                           // Configure the interrupt associated with the pin
+        gpio_conf.mode = m_pinMode;
+        gpio_conf.pin_bit_mask = BIT64(static_cast<uint8_t>(m_pin));
+        gpio_conf.pull_down_en = (m_pressedState) ? GPIO_PULLDOWN_ENABLE : GPIO_PULLDOWN_DISABLE;
+        gpio_conf.pull_up_en =   (m_pressedState) ? GPIO_PULLUP_DISABLE : GPIO_PULLUP_ENABLE;
+        gpio_conf.intr_type = GPIO_INTR_ANYEDGE;
+    gpio_config(&gpio_conf);
+    gpio_isr_handler_add(m_pin, InterruptButton::readButton, reinterpret_cast<void*>(this));
+    m_state = (gpio_get_level(m_pin) == m_pressedState) ? Pressed : Released;     // Set to current state when initialising
+  }
 }
 
 // Initialiser -------------------------------------------------------------------
